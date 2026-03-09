@@ -38,11 +38,23 @@ spec:
         app.kubernetes.io/component: cache
         app.kubernetes.io/part-of: edictum-console
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
           ports:
             - containerPort: 6379
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           # Disable persistence — sessions are ephemeral for demo
           command: ["redis-server", "--save", "", "--appendonly", "no"]
           readinessProbe:
