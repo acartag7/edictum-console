@@ -85,7 +85,7 @@ async def upload_bundle(
                 attempt + 1,
                 _MAX_VERSION_RETRIES,
             )
-            await db.expire_all()
+            db.expire_all()
             continue
 
     raise RuntimeError(

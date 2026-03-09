@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -30,8 +30,8 @@ class CompositionCreateRequest(BaseModel):
     defaults_mode: Literal["enforce", "observe"] = "enforce"
     update_strategy: Literal["manual", "auto_deploy", "observe_first"] = "manual"
     contracts: list[CompositionItemInput] = []
-    tools_config: dict | None = None
-    observability: dict | None = None
+    tools_config: dict[str, Any] | None = None
+    observability: dict[str, Any] | None = None
 
     @field_validator("name")
     @classmethod
@@ -55,8 +55,8 @@ class CompositionUpdateRequest(BaseModel):
     defaults_mode: Literal["enforce", "observe"] | None = None
     update_strategy: Literal["manual", "auto_deploy", "observe_first"] | None = None
     contracts: list[CompositionItemInput] | None = None
-    tools_config: dict | None = None
-    observability: dict | None = None
+    tools_config: dict[str, Any] | None = None
+    observability: dict[str, Any] | None = None
 
 
 class CompositionItemDetail(BaseModel):
@@ -94,8 +94,8 @@ class CompositionDetail(CompositionSummary):
     id: uuid.UUID
     tenant_id: uuid.UUID
     contracts: list[CompositionItemDetail]
-    tools_config: dict | None
-    observability: dict | None
+    tools_config: dict[str, Any] | None
+    observability: dict[str, Any] | None
 
 
 class PreviewResponse(BaseModel):
@@ -117,5 +117,5 @@ class ComposeDeployResponse(BaseModel):
 
     bundle_name: str
     bundle_version: int
-    contracts_assembled: list[dict]
+    contracts_assembled: list[dict[str, Any]]
     deployment_id: uuid.UUID

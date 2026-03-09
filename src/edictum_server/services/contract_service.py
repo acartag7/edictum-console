@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
+from typing import Any
 
 import yaml
 from sqlalchemy import select
@@ -30,7 +31,7 @@ async def create_contract(
     contract_id: str,
     name: str,
     type: str,
-    definition: dict,
+    definition: dict[str, Any],
     created_by: str,
     description: str | None = None,
     tags: list[str] | None = None,
@@ -75,7 +76,7 @@ async def update_contract(
     created_by: str,
     name: str | None = None,
     description: str | None = None,
-    definition: dict | None = None,
+    definition: dict[str, Any] | None = None,
     tags: list[str] | None = None,
 ) -> Contract:
     """Create a new version of an existing contract. Uses savepoint retry for races."""
@@ -119,7 +120,7 @@ async def update_contract(
                 "Contract version conflict: %s v%d (attempt %d/%d)",
                 contract_id, next_version, attempt + 1, _MAX_VERSION_RETRIES,
             )
-            await db.expire_all()
+            db.expire_all()
             continue
 
     raise RuntimeError(
@@ -242,7 +243,7 @@ async def get_contract_usage(
     db: AsyncSession,
     tenant_id: uuid.UUID,
     contract_id: str,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Return compositions that reference any version of this contract."""
     result = await db.execute(
         select(Contract.id).where(
@@ -277,7 +278,7 @@ async def import_from_yaml(
     tenant_id: uuid.UUID,
     yaml_content: str,
     created_by: str,
-) -> dict:
+) -> dict[str, Any]:
     """Import contracts from a YAML bundle. Returns created/updated lists."""
     try:
         parsed = yaml.safe_load(yaml_content)

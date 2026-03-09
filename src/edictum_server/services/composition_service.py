@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
@@ -17,7 +18,7 @@ from edictum_server.db.models import (
 
 
 async def resolve_contracts(
-    db: AsyncSession, tenant_id: uuid.UUID, items: list,
+    db: AsyncSession, tenant_id: uuid.UUID, items: list[Any],
 ) -> list[tuple[Contract, int, str | None, bool]]:
     """Resolve contract_id strings → latest Contract rows for this tenant."""
     resolved = []
@@ -51,8 +52,8 @@ def _add_items(
 async def create_composition(
     db: AsyncSession, tenant_id: uuid.UUID, name: str, created_by: str,
     description: str | None = None, defaults_mode: str = "enforce",
-    update_strategy: str = "manual", contracts: list | None = None,
-    tools_config: dict | None = None, observability: dict | None = None,
+    update_strategy: str = "manual", contracts: list[Any] | None = None,
+    tools_config: dict[str, Any] | None = None, observability: dict[str, Any] | None = None,
 ) -> BundleComposition:
     """Create a new bundle composition with optional contract items."""
     resolved = await resolve_contracts(db, tenant_id, contracts or [])
@@ -76,8 +77,8 @@ async def create_composition(
 async def update_composition(
     db: AsyncSession, tenant_id: uuid.UUID, name: str,
     description: str | None = None, defaults_mode: str | None = None,
-    update_strategy: str | None = None, contracts: list | None = None,
-    tools_config: dict | None = None, observability: dict | None = None,
+    update_strategy: str | None = None, contracts: list[Any] | None = None,
+    tools_config: dict[str, Any] | None = None, observability: dict[str, Any] | None = None,
 ) -> BundleComposition:
     """Update a composition. If contracts provided, full replacement."""
     comp = await get_composition(db, tenant_id, name)
@@ -119,7 +120,7 @@ async def get_composition(
 
 async def list_compositions(
     db: AsyncSession, tenant_id: uuid.UUID,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """List compositions with contract counts."""
     item_count = (
         select(func.count(BundleCompositionItem.id))
@@ -163,7 +164,7 @@ async def delete_composition(
 
 async def get_composition_items(
     db: AsyncSession, composition: BundleComposition,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Load composition items with contract details + has_newer_version."""
     result = await db.execute(
         select(BundleCompositionItem, Contract)
@@ -187,7 +188,7 @@ async def get_composition_items(
             )
             .group_by(Contract.contract_id)
         )
-        max_versions = dict(ver_result.all())
+        max_versions = {str(r[0]): int(r[1]) for r in ver_result.all()}
     return [
         {
             "contract_id": contract.contract_id,

@@ -78,7 +78,7 @@ async def update_agent(
     agent_id: str,
     *,
     display_name: str | None = _UNSET,
-    tags: dict | None = _UNSET,
+    tags: dict[str, Any] | None = _UNSET,
     bundle_name: str | None = _UNSET,
 ) -> AgentRegistration | None:
     """Update agent registration fields. Use sentinel (_UNSET) to skip fields."""
@@ -121,4 +121,4 @@ async def bulk_assign(
         .values(bundle_name=bundle_name)
     )
     await db.commit()
-    return result.rowcount  # type: ignore[return-value]
+    return result.rowcount or 0  # type: ignore[attr-defined]

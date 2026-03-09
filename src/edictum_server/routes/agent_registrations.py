@@ -1,6 +1,8 @@
 """Agent registration management endpoints (dashboard auth)."""
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -71,7 +73,7 @@ async def update_registration(
 
     old_bundle = old_agent.bundle_name
 
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
     if body.display_name is not None:
         kwargs["display_name"] = body.display_name
     if body.tags is not None:
@@ -79,7 +81,7 @@ async def update_registration(
     if body.bundle_name is not None:
         kwargs["bundle_name"] = body.bundle_name if body.bundle_name != "" else None
 
-    agent = await svc.update_agent(db, auth.tenant_id, agent_id, **kwargs)
+    agent = await svc.update_agent(db, auth.tenant_id, agent_id, **kwargs)  # type: ignore[arg-type]
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 

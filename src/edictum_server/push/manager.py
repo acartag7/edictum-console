@@ -250,17 +250,17 @@ class PushManager:
 
         # --- dashboard connections ---
         empty_tenants: list[uuid.UUID] = []
-        for tenant_id, conns in self._dashboard_connections.items():
-            stale = {
-                conn for conn in conns
-                if (now - conn.connected_at) > MAX_CONNECTION_AGE
+        for tid, dash_conns in self._dashboard_connections.items():
+            stale_dash = {
+                dc for dc in dash_conns
+                if (now - dc.connected_at) > MAX_CONNECTION_AGE
             }
-            removed += len(stale)
-            conns.difference_update(stale)
-            if not conns:
-                empty_tenants.append(tenant_id)
-        for tenant_id in empty_tenants:
-            del self._dashboard_connections[tenant_id]
+            removed += len(stale_dash)
+            dash_conns.difference_update(stale_dash)
+            if not dash_conns:
+                empty_tenants.append(tid)
+        for tid in empty_tenants:
+            del self._dashboard_connections[tid]
 
         if removed:
             logger.info("Cleaned up %d stale SSE connections", removed)

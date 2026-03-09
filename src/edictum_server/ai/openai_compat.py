@@ -10,7 +10,7 @@ from edictum_server.ai.base import AIProvider, AiUsageResult
 logger = logging.getLogger(__name__)
 
 try:
-    import openai
+    import openai  # type: ignore[import-not-found]
 
     _HAS_OPENAI = True
 except ImportError:

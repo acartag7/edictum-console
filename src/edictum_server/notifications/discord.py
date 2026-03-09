@@ -18,7 +18,7 @@ _COLOR = {"request": 0xFFA500, "approved": 0x57F287, "denied": 0xED4245, "expire
 _LABEL = {"approved": "Approved \u2705", "denied": "Denied \u274c", "timeout": "Expired \u23f0"}
 
 
-def _decided_embed(status: str, decided_by: str | None, reason: str | None) -> dict:
+def _decided_embed(status: str, decided_by: str | None, reason: str | None) -> dict[str, Any]:
     color = _COLOR.get(status, _COLOR["expired"])
     label = _LABEL.get(status, status.upper())
     desc = f"**Decision:** {label}"

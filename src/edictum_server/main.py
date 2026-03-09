@@ -10,6 +10,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 import sqlalchemy as sa
@@ -96,7 +97,7 @@ async def _approval_timeout_worker(app: FastAPI) -> None:
                         push.push_to_dashboard(item["tenant_id"], timeout_data)
                     # Group expired items by tenant for tenant-scoped notification
                     mgr: NotificationManager = app.state.notification_manager
-                    by_tenant: dict[str, list[dict]] = {}
+                    by_tenant: dict[str, list[dict[str, Any]]] = {}
                     for item in expired:
                         tid = str(item["tenant_id"])
                         by_tenant.setdefault(tid, []).append(item)
@@ -253,9 +254,10 @@ async def _cleanup_ai_usage() -> None:
         cutoff = datetime.now(UTC) - timedelta(days=90)
         async with async_session_factory()() as db:
             result = await db.execute(sa.delete(AiUsageLog).where(AiUsageLog.created_at < cutoff))
-            if result.rowcount:
+            rows_deleted = result.rowcount  # type: ignore[attr-defined]
+            if rows_deleted:
                 await db.commit()
-                logger.info("Cleaned up %d old AI usage log(s)", result.rowcount)
+                logger.info("Cleaned up %d old AI usage log(s)", rows_deleted)
     except Exception:
         logger.exception("AI usage cleanup error")
 

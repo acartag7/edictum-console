@@ -100,18 +100,20 @@ async def list_bundles(
     names = await list_bundle_names(db, auth.tenant_id)
     envs_by_name = await get_deployed_envs_by_bundle_name(db, auth.tenant_id)
     enrichment = await get_bundle_enrichment(db, auth.tenant_id)
-    return [
-        BundleSummaryResponse(
-            name=entry["name"],
-            latest_version=entry["latest_version"],
-            version_count=entry["version_count"],
-            last_updated=entry["last_updated"],
-            deployed_envs=envs_by_name.get(entry["name"], []),
-            contract_count=enrichment.get(entry["name"], {}).get("contract_count"),
-            last_deployed_at=enrichment.get(entry["name"], {}).get("last_deployed_at"),
-        )
-        for entry in names
-    ]
+    result: list[BundleSummaryResponse] = []
+    for entry in names:
+        bname = str(entry["name"])
+        enrich = enrichment.get(bname, {})
+        result.append(BundleSummaryResponse(
+            name=bname,
+            latest_version=entry["latest_version"],  # type: ignore[arg-type]
+            version_count=entry["version_count"],  # type: ignore[arg-type]
+            last_updated=entry["last_updated"],  # type: ignore[arg-type]
+            deployed_envs=envs_by_name.get(bname, []),
+            contract_count=enrich.get("contract_count"),  # type: ignore[arg-type]
+            last_deployed_at=enrich.get("last_deployed_at"),  # type: ignore[arg-type]
+        ))
+    return result
 
 
 # Register /{name}/current BEFORE /{name}/{version} — FastAPI matches top-to-bottom.

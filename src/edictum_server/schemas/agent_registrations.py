@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,7 +13,7 @@ class AgentRegistrationResponse(BaseModel):
     id: uuid.UUID
     agent_id: str
     display_name: str | None
-    tags: dict
+    tags: dict[str, Any]
     bundle_name: str | None
     resolved_bundle: str | None = None
     last_seen_at: datetime | None
@@ -21,7 +22,7 @@ class AgentRegistrationResponse(BaseModel):
 
 class AgentRegistrationUpdate(BaseModel):
     display_name: str | None = None
-    tags: dict | None = None
+    tags: dict[str, Any] | None = None
     bundle_name: str | None = None
 
 
@@ -39,7 +40,7 @@ class BulkAssignResponse(BaseModel):
 class AssignmentRuleCreate(BaseModel):
     priority: int = Field(..., ge=0)
     pattern: str = Field(..., min_length=1, max_length=200)
-    tag_match: dict | None = None
+    tag_match: dict[str, Any] | None = None
     bundle_name: str = Field(..., min_length=1)
     env: str = Field(..., min_length=1)
 
@@ -47,7 +48,7 @@ class AssignmentRuleCreate(BaseModel):
 class AssignmentRuleUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=0)
     pattern: str | None = Field(default=None, min_length=1, max_length=200)
-    tag_match: dict | None = None
+    tag_match: dict[str, Any] | None = None
     bundle_name: str | None = Field(default=None, min_length=1)
     env: str | None = Field(default=None, min_length=1)
 
@@ -56,7 +57,7 @@ class AssignmentRuleResponse(BaseModel):
     id: uuid.UUID
     priority: int
     pattern: str
-    tag_match: dict | None
+    tag_match: dict[str, Any] | None
     bundle_name: str
     env: str
     created_at: datetime

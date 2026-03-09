@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from edictum_server.auth.dependencies import AuthContext, require_admin, require_dashboard_auth
 from edictum_server.config import get_settings
 from edictum_server.db.engine import get_db
+from edictum_server.db.models import NotificationChannel
 from edictum_server.notifications.base import NotificationManager
 from edictum_server.notifications.loader import load_db_channels
 from edictum_server.schemas.notifications import (
@@ -57,10 +59,10 @@ def _mask_value(value: str) -> str:
     return f"{value[:4]}••••{value[-4:]}"
 
 
-def _redact_config(channel_type: str, config: dict) -> dict:
+def _redact_config(channel_type: str, config: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of config with secret fields masked."""
     secret_keys = _SECRET_FIELDS.get(channel_type, set())
-    redacted: dict = {}
+    redacted: dict[str, Any] = {}
     for key, value in config.items():
         if key in secret_keys:
             redacted[key] = _mask_value(str(value)) if value else ""
@@ -69,7 +71,7 @@ def _redact_config(channel_type: str, config: dict) -> dict:
     return redacted
 
 
-def _to_response(ch, *, secret: bytes | None = None) -> ChannelResponse:  # noqa: ANN001
+def _to_response(ch: NotificationChannel, *, secret: bytes | None = None) -> ChannelResponse:
     """Map ORM model to response schema with redacted secrets."""
     config = get_channel_config(ch, secret) if secret else (ch.config or {})
     return ChannelResponse(
@@ -164,7 +166,7 @@ async def update_channel(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Notification channels require EDICTUM_SIGNING_KEY_SECRET to be configured.",
         )
-    kwargs: dict = {}
+    kwargs: dict[str, Any] = {}
     if body.name is not None:
         kwargs["name"] = body.name
     if body.config is not None:

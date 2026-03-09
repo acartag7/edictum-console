@@ -115,7 +115,7 @@ def parse_contract_matchers(
     return matchers
 
 
-def manifest_to_matchers(manifest: dict) -> list[ContractMatcher]:
+def manifest_to_matchers(manifest: dict[str, Any]) -> list[ContractMatcher]:
     """Convert an agent manifest (from Gate) into ContractMatcher list.
 
     Manifest format::

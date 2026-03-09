@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import httpx
 
 
 async def test_http_channel(
     client: httpx.AsyncClient,
     channel_type: str,
-    config: dict,  # noqa: ANN001
+    config: dict[str, Any],
 ) -> tuple[bool, str]:
     """Test HTTP-based channels (telegram, slack, slack_app, webhook)."""
     if channel_type == "telegram":
@@ -76,7 +78,7 @@ async def test_http_channel(
     return False, f"Unknown channel type: {channel_type}"
 
 
-async def test_email(config: dict) -> tuple[bool, str]:  # noqa: ANN001
+async def test_email(config: dict[str, Any]) -> tuple[bool, str]:
     """Test email channel via aiosmtplib."""
     from email.message import EmailMessage
 

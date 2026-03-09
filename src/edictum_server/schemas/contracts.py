@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -18,7 +19,7 @@ class ContractCreateRequest(BaseModel):
     name: str
     description: str | None = None
     type: str  # "pre" | "post" | "session" | "sandbox"
-    definition: dict
+    definition: dict[str, Any]
     tags: list[str] = []
 
     @field_validator("contract_id")
@@ -45,7 +46,7 @@ class ContractUpdateRequest(BaseModel):
 
     name: str | None = None
     description: str | None = None
-    definition: dict | None = None
+    definition: dict[str, Any] | None = None
     tags: list[str] | None = None
 
 
@@ -65,7 +66,7 @@ class ContractSummary(BaseModel):
     contract_id: str
     name: str
     type: str
-    tags: list
+    tags: list[str]
     version: int
     description: str | None
     created_at: datetime
@@ -77,7 +78,7 @@ class ContractDetail(ContractSummary):
 
     id: uuid.UUID
     tenant_id: uuid.UUID
-    definition: dict
+    definition: dict[str, Any]
     is_latest: bool
     created_by: str
     versions: list[ContractVersionInfo] = []

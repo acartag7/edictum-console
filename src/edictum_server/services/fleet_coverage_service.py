@@ -92,8 +92,8 @@ async def compute_fleet_coverage(
                 total_tools=len(tool_rows), enforced=0, observed=0,
                 ungoverned=len(tool_rows), coverage_pct=0,
             ))
-            for row in tool_rows:
-                all_ungoverned.setdefault(row["tool_name"], set()).add(agent_id)
+            for tr in tool_rows:
+                all_ungoverned.setdefault(tr["tool_name"], set()).add(agent_id)
             continue
 
         matchers = env_matchers.get(agent_env, [])

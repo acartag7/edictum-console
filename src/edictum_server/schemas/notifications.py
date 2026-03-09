@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -22,7 +22,7 @@ class CreateChannelRequest(BaseModel):
 
     name: str = Field(min_length=1, max_length=100)
     channel_type: Literal["telegram", "slack", "slack_app", "webhook", "email", "discord"]
-    config: dict
+    config: dict[str, Any]
     filters: RoutingFilters | None = None
 
 
@@ -30,7 +30,7 @@ class UpdateChannelRequest(BaseModel):
     """Request body for updating a notification channel."""
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
-    config: dict | None = None
+    config: dict[str, Any] | None = None
     enabled: bool | None = None
     filters: RoutingFilters | None = None
 
@@ -46,9 +46,9 @@ class ChannelResponse(BaseModel):
     id: uuid.UUID
     name: str
     channel_type: str
-    config: dict
+    config: dict[str, Any]
     enabled: bool
-    filters: dict | None
+    filters: dict[str, Any] | None
     created_at: datetime
     last_test_at: datetime | None
     last_test_ok: bool | None

@@ -10,7 +10,7 @@ from edictum_server.ai.base import AIProvider, AiUsageResult
 logger = logging.getLogger(__name__)
 
 try:
-    import ollama as _ollama_lib
+    import ollama as _ollama_lib  # type: ignore[import-not-found]
 
     _HAS_OLLAMA = True
 except ImportError:

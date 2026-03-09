@@ -251,9 +251,10 @@ async def test_replay_already_decided(
     test_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """Submitting the same interaction twice is handled gracefully (no crash)."""
-    channel = await _create_slack_app_channel(client)
+    # Use the known signing secret (API response redacts it)
+    signing_secret = "test-secret-abc"
+    channel = await _create_slack_app_channel(client, signing_secret=signing_secret)
     channel_id = channel["id"]
-    signing_secret = channel["config"]["signing_secret"]
 
     approval = await _create_approval(client)
     approval_id = approval["id"]
@@ -281,8 +282,9 @@ async def test_replay_already_decided(
 @pytest.mark.security
 async def test_expired_approval_no_redis_key(client: AsyncClient) -> None:
     """Interaction for an approval whose Redis key has expired returns 200, not 500."""
-    channel = await _create_slack_app_channel(client)
-    signing_secret = channel["config"]["signing_secret"]
+    # Use the known signing secret (API response redacts it)
+    signing_secret = "test-secret-abc"
+    await _create_slack_app_channel(client, signing_secret=signing_secret)
 
     approval = await _create_approval(client)
     # Do NOT set the Redis key — simulates TTL expiry

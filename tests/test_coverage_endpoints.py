@@ -40,21 +40,21 @@ async def _seed_events(
     events = [
         Event(
             tenant_id=TENANT_A_ID, call_id=f"{agent_id}-exec-{i}", agent_id=agent_id,
-            tool_name="exec", verdict="deny", mode="enforce", env=env,
+            tool_name="exec", verdict="call_denied", mode="enforce", env=env,
             timestamp=now - timedelta(hours=i),
         )
         for i in range(5)
     ] + [
         Event(
             tenant_id=TENANT_A_ID, call_id=f"{agent_id}-file_read-{i}", agent_id=agent_id,
-            tool_name="file_read", verdict="allow", mode="enforce", env=env,
+            tool_name="file_read", verdict="call_allowed", mode="enforce", env=env,
             timestamp=now - timedelta(hours=i),
         )
         for i in range(3)
     ] + [
         Event(
             tenant_id=TENANT_A_ID, call_id=f"{agent_id}-web_scrape-{i}", agent_id=agent_id,
-            tool_name="web_scrape", verdict="allow", mode="enforce", env=env,
+            tool_name="web_scrape", verdict="call_allowed", mode="enforce", env=env,
             timestamp=now - timedelta(hours=i),
         )
         for i in range(2)
@@ -177,12 +177,12 @@ async def test_agent_coverage_time_window(
     db_session.add_all([
         Event(
             tenant_id=TENANT_A_ID, call_id="recent-1", agent_id="agent-1",
-            tool_name="exec", verdict="deny", mode="enforce", env="production",
+            tool_name="exec", verdict="call_denied", mode="enforce", env="production",
             timestamp=now - timedelta(minutes=30),
         ),
         Event(
             tenant_id=TENANT_A_ID, call_id="old-1", agent_id="agent-1",
-            tool_name="web_scrape", verdict="allow", mode="enforce", env="production",
+            tool_name="web_scrape", verdict="call_allowed", mode="enforce", env="production",
             timestamp=now - timedelta(hours=5),
         ),
     ])
@@ -311,13 +311,13 @@ async def test_fleet_env_filter_uses_correct_contracts(
     db_session.add_all([
         Event(
             tenant_id=TENANT_A_ID, call_id="multi-env-staging",
-            agent_id="multi-env-agent", tool_name="exec", verdict="deny",
+            agent_id="multi-env-agent", tool_name="exec", verdict="call_denied",
             mode="enforce", env="staging",
             timestamp=now - timedelta(minutes=5),  # most recent
         ),
         Event(
             tenant_id=TENANT_A_ID, call_id="multi-env-prod",
-            agent_id="multi-env-agent", tool_name="exec", verdict="deny",
+            agent_id="multi-env-agent", tool_name="exec", verdict="call_denied",
             mode="enforce", env="production",
             timestamp=now - timedelta(hours=1),  # older
         ),

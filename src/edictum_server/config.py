@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class Settings(BaseSettings):
     """Edictum Console settings loaded from environment / .env file."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_prefix="EDICTUM_")
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="EDICTUM_", extra="ignore")
 
     # Database (required — no default, must be explicitly configured)
     database_url: str = ""

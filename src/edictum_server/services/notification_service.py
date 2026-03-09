@@ -6,6 +6,7 @@ import json
 import secrets
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 from nacl.secret import SecretBox
@@ -42,7 +43,7 @@ REQUIRED_CONFIG: dict[str, list[str]] = {
 _UNSET = object()
 
 
-def encrypt_config(config: dict, secret: bytes) -> bytes:
+def encrypt_config(config: dict[str, Any], secret: bytes) -> bytes:
     """Encrypt a config dict using NaCl SecretBox.
 
     Args:
@@ -56,7 +57,7 @@ def encrypt_config(config: dict, secret: bytes) -> bytes:
     return box.encrypt(json.dumps(config).encode("utf-8"))
 
 
-def decrypt_config(encrypted: bytes, secret: bytes) -> dict:
+def decrypt_config(encrypted: bytes, secret: bytes) -> dict[str, Any]:
     """Decrypt a config dict from ``config_encrypted``.
 
     Args:
@@ -71,7 +72,7 @@ def decrypt_config(encrypted: bytes, secret: bytes) -> dict:
     return json.loads(plaintext)  # type: ignore[no-any-return]
 
 
-def get_channel_config(channel: NotificationChannel, secret: bytes) -> dict:
+def get_channel_config(channel: NotificationChannel, secret: bytes) -> dict[str, Any]:
     """Read the config from a channel, preferring encrypted over plain.
 
     Handles both migrated (encrypted) and un-migrated (plain JSON) rows.
@@ -83,7 +84,7 @@ def get_channel_config(channel: NotificationChannel, secret: bytes) -> dict:
 
 def _set_channel_config(
     channel: NotificationChannel,
-    config: dict,
+    config: dict[str, Any],
     secret: bytes,
 ) -> None:
     """Write config to a channel — encrypted at rest, plain column cleared."""
@@ -91,7 +92,7 @@ def _set_channel_config(
     channel.config = None  # Clear plain-text so secrets don't linger
 
 
-def _validate_config(channel_type: str, config: dict) -> None:  # noqa: ANN001
+def _validate_config(channel_type: str, config: dict[str, Any]) -> None:
     """Raise ValueError if required config keys are missing."""
     required = REQUIRED_CONFIG.get(channel_type, [])
     missing = [k for k in required if k not in config]
@@ -99,7 +100,7 @@ def _validate_config(channel_type: str, config: dict) -> None:  # noqa: ANN001
         raise ValueError(f"Missing required config keys for {channel_type}: {', '.join(missing)}")
 
 
-async def _validate_urls(channel_type: str, config: dict) -> None:  # noqa: ANN001
+async def _validate_urls(channel_type: str, config: dict[str, Any]) -> None:
     """Validate outbound URLs in channel config to prevent SSRF attacks."""
     for field in _URL_FIELDS.get(channel_type, []):
         if field in config:
@@ -143,8 +144,8 @@ async def create_channel(
     *,
     name: str,
     channel_type: str,
-    config: dict,
-    filters: dict | None = None,
+    config: dict[str, Any],
+    filters: dict[str, Any] | None = None,
     secret: bytes | None = None,
 ) -> NotificationChannel:
     """Create a new notification channel. Caller commits.
@@ -183,7 +184,7 @@ async def update_channel(
     channel_id: uuid.UUID,
     *,
     name: str | None = None,
-    config: dict | None = None,
+    config: dict[str, Any] | None = None,
     enabled: bool | None = None,
     filters: object = _UNSET,
     secret: bytes | None = None,

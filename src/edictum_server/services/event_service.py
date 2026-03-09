@@ -118,4 +118,4 @@ async def purge_events(
     )
     result = await db.execute(stmt)
     await db.flush()
-    return result.rowcount, cutoff  # type: ignore[return-value]
+    return result.rowcount, cutoff  # type: ignore[attr-defined]

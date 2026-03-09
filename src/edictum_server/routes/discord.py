@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
@@ -85,7 +86,7 @@ async def discord_interaction(
         return Response(status_code=401)
 
     try:
-        body_json: dict = json.loads(body)
+        body_json: dict[str, Any] = json.loads(body)
     except (json.JSONDecodeError, ValueError):
         return Response(status_code=400)
 
@@ -106,7 +107,7 @@ async def discord_interaction(
 async def _handle_component(
     request: Request,
     db: AsyncSession,
-    body_json: dict,
+    body_json: dict[str, Any],
     db_channel: ChannelModel,
 ) -> Response:
     """Process a Discord component interaction (button click)."""

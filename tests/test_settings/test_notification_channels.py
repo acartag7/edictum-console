@@ -38,8 +38,10 @@ async def test_create_channel(client: AsyncClient) -> None:
     data = await _create_channel(client)
     assert data["name"] == "ops-telegram"
     assert data["channel_type"] == "telegram"
-    # Config includes auto-generated webhook_secret for Telegram DB channels
-    assert data["config"]["bot_token"] == TELEGRAM_CONFIG["bot_token"]
+    # bot_token and webhook_secret are secret fields — redacted in responses
+    assert "bot_token" in data["config"]
+    assert data["config"]["bot_token"] != TELEGRAM_CONFIG["bot_token"]  # redacted
+    # chat_id is NOT a secret field — returned as-is
     assert data["config"]["chat_id"] == TELEGRAM_CONFIG["chat_id"]
     assert "webhook_secret" in data["config"]
     assert data["enabled"] is True

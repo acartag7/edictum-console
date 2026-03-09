@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -58,7 +59,7 @@ async def get_agent_manifest(
     db: AsyncSession,
     tenant_id: uuid.UUID,
     agent_id: str,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Load the stored manifest for an agent, or None if not available."""
     result = await db.execute(
         select(AgentRegistration.manifest).where(

@@ -85,8 +85,8 @@ async def deploy_client(
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import (
+        _make_auth_a_admin,
         _make_auth_a_api_key,
-        _make_auth_a_dashboard,
         _override_get_db,
     )
 
@@ -99,7 +99,7 @@ async def deploy_client(
     app.dependency_overrides[get_redis] = lambda: test_redis
     app.dependency_overrides[get_push_manager] = lambda: push_manager
     app.dependency_overrides[require_api_key] = _make_auth_a_api_key
-    app.dependency_overrides[require_dashboard_auth] = _make_auth_a_dashboard
+    app.dependency_overrides[require_dashboard_auth] = _make_auth_a_admin
     app.dependency_overrides[get_current_tenant] = _make_auth_a_api_key
     app.dependency_overrides[get_settings] = _test_settings
 
@@ -109,7 +109,11 @@ async def deploy_client(
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-Requested-With": "XMLHttpRequest"},
+    ) as ac:
         yield ac
 
     app.dependency_overrides.clear()

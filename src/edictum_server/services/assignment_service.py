@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import fnmatch
 import uuid
+from typing import Any
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,7 +15,7 @@ async def resolve_bundle(
     db: AsyncSession,
     tenant_id: uuid.UUID,
     agent_id: str,
-    agent_tags: dict | None = None,
+    agent_tags: dict[str, Any] | None = None,
     agent_provided_bundle: str | None = None,
 ) -> tuple[str | None, str, uuid.UUID | None, str | None]:
     """Resolve which bundle an agent should receive.
@@ -46,7 +47,7 @@ async def resolve_bundle(
     )
     rules = rules_result.scalars().all()
 
-    effective_tags: dict = {}
+    effective_tags: dict[str, Any] = {}
     if agent_reg and agent_reg.tags:
         effective_tags = agent_reg.tags
     if agent_tags:
@@ -92,7 +93,7 @@ async def create_rule(
     *,
     priority: int,
     pattern: str,
-    tag_match: dict | None,
+    tag_match: dict[str, Any] | None,
     bundle_name: str,
     env: str,
 ) -> AssignmentRule:
@@ -162,4 +163,4 @@ async def delete_rule(
         )
     )
     await db.commit()
-    return result.rowcount > 0  # type: ignore[return-value]
+    return (result.rowcount or 0) > 0  # type: ignore[attr-defined]

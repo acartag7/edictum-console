@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import String, cast, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from edictum_server.db.models import Bundle, Deployment, Event
 from edictum_server.schemas.coverage import AgentHistoryResponse, HistoryEvent
 
-EventRow = tuple[datetime, dict | None]  # (timestamp, payload)
+EventRow = tuple[datetime, dict[str, Any] | None]  # (timestamp, payload)
 
 
 async def get_agent_history(
@@ -69,12 +70,14 @@ async def get_agent_history(
             dep_hashes[dep.id] = rh
 
     # Batch-query agent events from oldest deployment onward
-    agent_events: list[EventRow] = list((await db.execute(
-        select(Event.timestamp, Event.payload).where(
-            Event.tenant_id == tenant_id, Event.agent_id == agent_id,
-            Event.timestamp >= deployments[-1].created_at,
-        ).order_by(Event.timestamp.asc())
-    )).all())
+    agent_events: list[EventRow] = [
+        (row[0], row[1]) for row in (await db.execute(
+            select(Event.timestamp, Event.payload).where(
+                Event.tenant_id == tenant_id, Event.agent_id == agent_id,
+                Event.timestamp >= deployments[-1].created_at,
+            ).order_by(Event.timestamp.asc())
+        )).all()
+    ]
 
     # Only track drift if the agent participates in console-managed versioning.
     # Agents using local YAML (from_yaml) never match console bundle hashes —
@@ -205,5 +208,6 @@ async def _query_version_before(
         ).order_by(Event.timestamp.desc()).limit(1)
     )).first()
     if row and row[0]:
-        return row[0].get("policy_version")
+        pv: object = row[0].get("policy_version")
+        return str(pv) if pv is not None else None
     return None

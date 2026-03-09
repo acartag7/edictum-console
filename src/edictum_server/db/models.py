@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     JSON,
@@ -111,7 +112,7 @@ class Bundle(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     source_hub_revision: Mapped[str | None] = mapped_column(String, nullable=True)
     uploaded_by: Mapped[str] = mapped_column(String)
     composition_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
-    composition_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    composition_snapshot: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     tenant: Mapped[Tenant] = relationship(back_populates="bundles")
 
@@ -199,7 +200,7 @@ class NotificationChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), index=True)
     name: Mapped[str] = mapped_column(String)
     channel_type: Mapped[str] = mapped_column(String)
-    config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     config_encrypted: Mapped[bytes | None] = mapped_column(
         LargeBinary, nullable=True,
     )
@@ -209,7 +210,7 @@ class NotificationChannel(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=True,
     )
     last_test_ok: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    filters: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    filters: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class Contract(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -229,8 +230,8 @@ class Contract(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     type: Mapped[str] = mapped_column(String)
     name: Mapped[str] = mapped_column(String)
     description: Mapped[str | None] = mapped_column(String, nullable=True)
-    definition: Mapped[dict] = mapped_column(JSON)
-    tags: Mapped[list] = mapped_column(JSON, default=list)
+    definition: Mapped[dict[str, Any]] = mapped_column(JSON)
+    tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     is_latest: Mapped[bool] = mapped_column(Boolean, default=True)
     created_by: Mapped[str] = mapped_column(String)
 
@@ -248,8 +249,8 @@ class BundleComposition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     description: Mapped[str | None] = mapped_column(String, nullable=True)
     defaults_mode: Mapped[str] = mapped_column(String, default="enforce")
     update_strategy: Mapped[str] = mapped_column(String, default="manual")
-    tools_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    observability: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    tools_config: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    observability: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(),
@@ -290,9 +291,9 @@ class AgentRegistration(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), index=True)
     agent_id: Mapped[str] = mapped_column(String, index=True)
     display_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    tags: Mapped[dict] = mapped_column(JSON, default=dict)
+    tags: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     bundle_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    manifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    manifest: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
@@ -306,7 +307,7 @@ class AssignmentRule(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tenant_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("tenants.id"), index=True)
     priority: Mapped[int] = mapped_column(Integer)
     pattern: Mapped[str] = mapped_column(String)
-    tag_match: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    tag_match: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     bundle_name: Mapped[str] = mapped_column(String)
     env: Mapped[str] = mapped_column(String)
 

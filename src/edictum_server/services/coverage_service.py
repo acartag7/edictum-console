@@ -93,7 +93,7 @@ async def compute_coverage(
     cache_key = f"coverage:{tenant_id}:{agent_id}:{since_rounded.isoformat()}:{include_verdicts}"
     if redis is not None:
         try:
-            cached = await redis.get(cache_key)  # type: ignore[union-attr]
+            cached = await redis.get(cache_key)  # type: ignore[attr-defined]
             if cached:
                 return AgentCoverage.model_validate_json(cached)
         except Exception:  # noqa: BLE001
@@ -167,7 +167,7 @@ async def compute_coverage(
     # Cache in Redis
     if redis is not None:
         try:
-            await redis.set(cache_key, result.model_dump_json(), ex=COVERAGE_CACHE_TTL)  # type: ignore[union-attr]
+            await redis.set(cache_key, result.model_dump_json(), ex=COVERAGE_CACHE_TTL)  # type: ignore[attr-defined]
         except Exception:  # noqa: BLE001
             logger.debug("Redis cache write failed for %s", cache_key)
 

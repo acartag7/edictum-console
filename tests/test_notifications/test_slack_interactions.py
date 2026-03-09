@@ -76,9 +76,10 @@ async def test_slack_interaction_approve(
     client: AsyncClient,
     test_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
-    channel = await _create_slack_app_channel(client)
+    # Use the known signing secret (not from API response, which is redacted)
+    signing_secret = "test-signing-secret"
+    channel = await _create_slack_app_channel(client, signing_secret=signing_secret)
     channel_id = channel["id"]
-    signing_secret = channel["config"]["signing_secret"]
 
     approval = await _create_approval(client)
     approval_id = approval["id"]
@@ -111,9 +112,10 @@ async def test_slack_interaction_deny(
     client: AsyncClient,
     test_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
-    channel = await _create_slack_app_channel(client)
+    # Use the known signing secret (not from API response, which is redacted)
+    signing_secret = "test-signing-secret"
+    channel = await _create_slack_app_channel(client, signing_secret=signing_secret)
     channel_id = channel["id"]
-    signing_secret = channel["config"]["signing_secret"]
 
     approval = await _create_approval(client)
     approval_id = approval["id"]

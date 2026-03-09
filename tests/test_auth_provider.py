@@ -4,27 +4,24 @@ from __future__ import annotations
 
 import uuid
 
+import fakeredis.aioredis
 import pytest
-import redis.asyncio as aioredis
 from fastapi import HTTPException
 
 from edictum_server.auth.local import LocalAuthProvider
 from edictum_server.auth.provider import AuthProvider, DashboardAuthContext
 
-TEST_REDIS_URL = "redis://localhost:6379/15"
-
 
 @pytest.fixture()
-async def redis() -> aioredis.Redis:
-    r = aioredis.from_url(TEST_REDIS_URL, decode_responses=True)
-    await r.flushdb()
+async def redis() -> fakeredis.aioredis.FakeRedis:
+    r = fakeredis.aioredis.FakeRedis(decode_responses=True)
     yield r
     await r.flushdb()
     await r.aclose()
 
 
 @pytest.fixture()
-def provider(redis: aioredis.Redis) -> LocalAuthProvider:
+def provider(redis: fakeredis.aioredis.FakeRedis) -> LocalAuthProvider:
     return LocalAuthProvider(redis=redis, session_ttl_hours=24)
 
 
@@ -99,7 +96,7 @@ async def test_authenticate_missing_cookie(
 
 async def test_authenticate_expired_token(
     provider: LocalAuthProvider,
-    redis: aioredis.Redis,
+    redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     user_id = uuid.uuid4()
     tenant_id = uuid.uuid4()
@@ -121,7 +118,7 @@ async def test_authenticate_expired_token(
 
 async def test_destroy_session_removes_token(
     provider: LocalAuthProvider,
-    redis: aioredis.Redis,
+    redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     user_id = uuid.uuid4()
     tenant_id = uuid.uuid4()

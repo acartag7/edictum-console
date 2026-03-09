@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
@@ -37,7 +38,7 @@ def _find_telegram_channel(mgr: NotificationManager, channel_id: str) -> Telegra
 async def _process_callback(
     request: Request,
     db: AsyncSession,
-    callback_query: dict,
+    callback_query: dict[str, Any],
     tg_channel: TelegramChannel,
     channel_id: str,
 ) -> Response:

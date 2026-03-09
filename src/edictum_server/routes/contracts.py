@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,7 +39,7 @@ def _contract_to_summary(c: object) -> ContractSummary:
 
 
 def _contract_to_detail(
-    c: object, versions: list[object] | None = None,
+    c: object, versions: Sequence[object] | None = None,
 ) -> ContractDetail:
     detail = ContractDetail.model_validate(c)
     if versions:

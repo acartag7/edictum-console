@@ -60,7 +60,7 @@ async def stream(
     agent_id = auth.agent_id or "unknown"
 
     # Parse tags if provided
-    parsed_tags: dict | None = None
+    parsed_tags: dict[str, Any] | None = None
     if tags:
         try:
             parsed_tags = _json.loads(tags)

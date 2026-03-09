@@ -15,7 +15,7 @@ from tests.conftest import TENANT_A_ID
 def _make_event(
     *,
     decision_name: str = "no_shell",
-    verdict: str = "allowed",
+    verdict: str = "call_allowed",
     ts: datetime | None = None,
 ) -> Event:
     """Helper to create an Event with a decision_name in the payload."""
@@ -47,15 +47,19 @@ async def test_contract_stats_with_events(
     """Seed events and verify aggregation counts."""
     now = datetime.now(UTC)
     events = [
-        _make_event(decision_name="no_shell", verdict="allowed", ts=now - timedelta(hours=1)),
-        _make_event(decision_name="no_shell", verdict="denied", ts=now - timedelta(hours=2)),
+        _make_event(decision_name="no_shell", verdict="call_allowed", ts=now - timedelta(hours=1)),
+        _make_event(decision_name="no_shell", verdict="call_denied", ts=now - timedelta(hours=2)),
         _make_event(
             decision_name="no_shell",
             verdict="call_would_deny",
             ts=now - timedelta(hours=3),
         ),
-        _make_event(decision_name="rate_limit", verdict="allowed", ts=now - timedelta(hours=1)),
-        _make_event(decision_name="rate_limit", verdict="denied", ts=now - timedelta(hours=2)),
+        _make_event(
+            decision_name="rate_limit", verdict="call_allowed", ts=now - timedelta(hours=1),
+        ),
+        _make_event(
+            decision_name="rate_limit", verdict="call_denied", ts=now - timedelta(hours=2),
+        ),
     ]
     db_session.add_all(events)
     await db_session.commit()
@@ -86,8 +90,12 @@ async def test_contract_stats_time_filter(
 ) -> None:
     """Events outside the time window are excluded."""
     now = datetime.now(UTC)
-    inside = _make_event(decision_name="no_shell", verdict="allowed", ts=now - timedelta(hours=1))
-    outside = _make_event(decision_name="no_shell", verdict="denied", ts=now - timedelta(hours=48))
+    inside = _make_event(
+        decision_name="no_shell", verdict="call_allowed", ts=now - timedelta(hours=1),
+    )
+    outside = _make_event(
+        decision_name="no_shell", verdict="call_denied", ts=now - timedelta(hours=48),
+    )
     db_session.add_all([inside, outside])
     await db_session.commit()
 

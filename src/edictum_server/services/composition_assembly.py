@@ -6,6 +6,7 @@ import base64
 import hashlib
 import logging
 import uuid
+from typing import Any
 
 import yaml
 from sqlalchemy import select
@@ -29,7 +30,7 @@ _MAX_VERSION_RETRIES = 5
 
 async def assemble_bundle(
     db: AsyncSession, composition: BundleComposition,
-) -> tuple[bytes, list[dict]]:
+) -> tuple[bytes, list[dict[str, Any]]]:
     """Assemble a BundleComposition into valid ContractBundle YAML."""
     result = await db.execute(
         select(BundleCompositionItem, Contract)
@@ -41,8 +42,8 @@ async def assemble_bundle(
         )
         .order_by(BundleCompositionItem.position)
     )
-    contracts_yaml: list[dict] = []
-    snapshot: list[dict] = []
+    contracts_yaml: list[dict[str, Any]] = []
+    snapshot: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
 
     for item, contract in result.all():
@@ -72,7 +73,7 @@ async def assemble_bundle(
     if not contracts_yaml:
         raise ValueError("Composition has no enabled contracts")
 
-    bundle_doc: dict = {
+    bundle_doc: dict[str, Any] = {
         "apiVersion": "edictum/v1", "kind": "ContractBundle",
         "metadata": {"name": composition.name},
         "defaults": {"mode": composition.defaults_mode},
@@ -91,7 +92,7 @@ async def assemble_bundle(
 
 async def preview_composition(
     db: AsyncSession, composition: BundleComposition,
-) -> dict:
+) -> dict[str, Any]:
     """Assemble and return YAML without creating any rows."""
     validation_errors: list[str] = []
     try:
@@ -100,7 +101,7 @@ async def preview_composition(
         return {"yaml_content": "", "contracts_count": 0,
                 "validation_errors": [str(exc)]}
     try:
-        from edictum import load_bundle_string  # type: ignore[import-untyped]
+        from edictum import load_bundle_string  # type: ignore[import-untyped, attr-defined]
         load_bundle_string(yaml_bytes.decode())
     except ImportError:
         pass
@@ -117,7 +118,7 @@ async def deploy_composition(
     db: AsyncSession, tenant_id: uuid.UUID, composition: BundleComposition,
     env: str, deployed_by: str, signing_secret: bytes,
     push_manager: PushManager,
-) -> dict:
+) -> dict[str, Any]:
     """Assemble, sign, create Bundle + Deployment, and push SSE."""
     yaml_bytes, snapshot = await assemble_bundle(db, composition)
     revision_hash = hashlib.sha256(yaml_bytes).hexdigest()
@@ -158,7 +159,7 @@ async def deploy_composition(
             logger.warning("Bundle version conflict: %s v%d (%d/%d)",
                            composition.name, next_version, attempt + 1,
                            _MAX_VERSION_RETRIES)
-            await db.expire_all()
+            db.expire_all()
     else:
         raise RuntimeError(
             f"Failed to assign version for '{composition.name}' "

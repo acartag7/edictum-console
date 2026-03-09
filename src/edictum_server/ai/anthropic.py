@@ -10,7 +10,7 @@ from edictum_server.ai.base import AIProvider, AiUsageResult
 logger = logging.getLogger(__name__)
 
 try:
-    import anthropic
+    import anthropic  # type: ignore[import-not-found]
 
     _HAS_ANTHROPIC = True
 except ImportError:
