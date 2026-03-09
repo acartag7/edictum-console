@@ -115,7 +115,7 @@ async def test_agent_id_reuse_independent_coverage(
     client: AsyncClient,
     db_session: AsyncSession,
     set_auth_tenant_b: Callable[[], None],
-    set_auth_tenant_a: Callable[[], None],
+    set_auth_tenant_a: Callable[[], None],  # noqa: ARG001
 ) -> None:
     """Same agent_id across tenants produces independent coverage results."""
     now = datetime.now(UTC)
@@ -161,7 +161,7 @@ async def test_agent_id_reuse_independent_coverage(
 async def test_fleet_ungoverned_tools_not_mixed(
     client: AsyncClient,
     db_session: AsyncSession,
-    set_auth_tenant_b: Callable[[], None],
+    set_auth_tenant_b: Callable[[], None],  # noqa: ARG001
 ) -> None:
     """Ungoverned tools in fleet summary only show agents from the requesting tenant."""
     now = datetime.now(UTC)

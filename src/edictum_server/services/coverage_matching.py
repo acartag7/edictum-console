@@ -124,7 +124,10 @@ def manifest_to_matchers(manifest: dict) -> list[ContractMatcher]:
             "policy_version": "abc123...",
             "contracts": [
                 {"id": "deny-reads", "type": "pre", "tool": "Read", "mode": "observe"},
-                {"id": "block-bash", "type": "pre", "tool": ["Bash", "shell_*"], "mode": "enforce"},
+                {
+                    "id": "block-bash", "type": "pre",
+                    "tool": ["Bash", "shell_*"], "mode": "enforce",
+                },
             ]
         }
     """

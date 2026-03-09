@@ -7,7 +7,7 @@ from collections.abc import Callable
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import TENANT_A_ID, TENANT_B_ID
+from tests.conftest import TENANT_A_ID
 
 SAMPLE_YAML = """\
 apiVersion: edictum/v1

@@ -49,7 +49,11 @@ async def test_contract_stats_with_events(
     events = [
         _make_event(decision_name="no_shell", verdict="allowed", ts=now - timedelta(hours=1)),
         _make_event(decision_name="no_shell", verdict="denied", ts=now - timedelta(hours=2)),
-        _make_event(decision_name="no_shell", verdict="call_would_deny", ts=now - timedelta(hours=3)),
+        _make_event(
+            decision_name="no_shell",
+            verdict="call_would_deny",
+            ts=now - timedelta(hours=3),
+        ),
         _make_event(decision_name="rate_limit", verdict="allowed", ts=now - timedelta(hours=1)),
         _make_event(decision_name="rate_limit", verdict="denied", ts=now - timedelta(hours=2)),
     ]

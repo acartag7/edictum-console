@@ -5,7 +5,6 @@ from __future__ import annotations
 import uuid
 
 import fakeredis.aioredis
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import NotificationChannel as ChannelModel

@@ -79,7 +79,7 @@ async def _create_rule(
 async def test_tenant_a_cannot_list_tenant_b_registrations(
     client: AsyncClient,
     db_session: AsyncSession,
-    set_auth_tenant_b: Callable[[], None],
+    set_auth_tenant_b: Callable[[], None],  # noqa: ARG001
 ) -> None:
     """Tenant A listing registrations must not see Tenant B's agents."""
     # Create agent in Tenant B
@@ -95,7 +95,7 @@ async def test_tenant_a_cannot_list_tenant_b_registrations(
 async def test_tenant_a_cannot_update_tenant_b_agent(
     client: AsyncClient,
     db_session: AsyncSession,
-    set_auth_tenant_b: Callable[[], None],
+    set_auth_tenant_b: Callable[[], None],  # noqa: ARG001
 ) -> None:
     """PATCH /agent-registrations/{agent_id} with Tenant A auth targeting Tenant B agent."""
     # Create agent in Tenant B
@@ -206,7 +206,7 @@ async def test_cross_tenant_agent_id_collision(
     client: AsyncClient,
     db_session: AsyncSession,
     set_auth_tenant_b: Callable[[], None],
-    set_auth_tenant_a: Callable[[], None],
+    set_auth_tenant_a: Callable[[], None],  # noqa: ARG001
 ) -> None:
     """Same agent_id in two tenants are independent entities."""
     # Both tenants have agent "shared-bot"

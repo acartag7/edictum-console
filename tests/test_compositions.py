@@ -7,8 +7,6 @@ from collections.abc import Callable
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import TENANT_A_ID, TENANT_B_ID
-
 
 def _contract(cid: str = "block-reads", name: str = "Block Reads", type: str = "pre") -> dict:
     return {
@@ -304,7 +302,7 @@ async def test_tenant_isolation_get(
 @pytest.mark.anyio
 async def test_tenant_isolation_cross_tenant_contract_ref(
     client: AsyncClient, set_auth_tenant_b: Callable[[], None],
-    set_auth_tenant_a: Callable[[], None],
+    set_auth_tenant_a: Callable[[], None],  # noqa: ARG001
 ) -> None:
     """Composition can't reference another tenant's contract."""
     # Create contract as tenant A

@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
-
-import pytest
-
 from edictum_server.notifications.base import NotificationChannel, NotificationManager
 
 

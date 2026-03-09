@@ -45,7 +45,11 @@ async def test_http_channel(
             error = data.get("error", "unknown")
             needed = data.get("needed")
             if needed:
-                return False, f"Slack API error: {error} (add '{needed}' scope in OAuth & Permissions, then reinstall the app)"
+                msg = (
+                    f"Slack API error: {error} (add '{needed}'"
+                    " scope in OAuth & Permissions, then reinstall the app)"
+                )
+                return False, msg
             return False, f"Slack API error: {error}"
         return True, "Slack App message sent successfully."
 

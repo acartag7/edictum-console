@@ -13,9 +13,6 @@ import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from edictum_server.auth.dependencies import AuthContext, require_api_key
-
-# Session keys must match this pattern to prevent Redis key injection
-_KEY_PATTERN = r"^[a-zA-Z0-9_\-\.:/]+$"
 from edictum_server.redis.client import get_redis
 from edictum_server.schemas.sessions import (
     IncrementRequest,
@@ -29,6 +26,9 @@ from edictum_server.services.session_service import (
     increment_session_value,
     set_session_value,
 )
+
+# Session keys must match this pattern to prevent Redis key injection
+_KEY_PATTERN = r"^[a-zA-Z0-9_\-\.:/]+$"
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
 

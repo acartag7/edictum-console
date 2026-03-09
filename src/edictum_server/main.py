@@ -313,10 +313,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Load DB-configured notification channels and register Telegram webhooks
     try:
         signing_secret: bytes | None = None
-        try:
+        with contextlib.suppress(ValueError):
             signing_secret = settings.get_signing_secret()
-        except ValueError:
-            pass
         async with async_session_factory()() as db:
             channels_by_tenant = await load_db_channels(
                 db,

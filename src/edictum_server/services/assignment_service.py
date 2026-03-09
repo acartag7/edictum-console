@@ -57,12 +57,11 @@ async def resolve_bundle(
         if not fnmatch.fnmatch(agent_id, rule.pattern):
             continue
         # Check tag matching (AND logic — all tags in rule must match)
-        if rule.tag_match:
-            if not all(
-                effective_tags.get(k) == v
-                for k, v in rule.tag_match.items()
-            ):
-                continue
+        if rule.tag_match and not all(
+            effective_tags.get(k) == v
+            for k, v in rule.tag_match.items()
+        ):
+            continue
         return (rule.bundle_name, "rule", rule.id, rule.pattern)
 
     # (3) Fall back to agent-provided bundle_name

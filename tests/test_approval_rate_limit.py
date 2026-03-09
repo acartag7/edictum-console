@@ -56,7 +56,7 @@ async def test_approval_rate_limit_per_agent_tenant(client: AsyncClient) -> None
     # Note: the test client auth fixture doesn't set agent_id (defaults to None),
     # so all requests share the "unknown" agent bucket.
     # This test verifies the rate limit key is correctly scoped per (tenant, agent).
-    for i in range(10):
+    for _i in range(10):
         resp = await client.post(
             "/api/v1/approvals",
             json=_make_approval_body(),

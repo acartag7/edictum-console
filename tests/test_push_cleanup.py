@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from edictum_server.push.manager import MAX_CONNECTION_AGE, DashboardConnection, PushManager
+from edictum_server.push.manager import MAX_CONNECTION_AGE, PushManager
 
 TENANT = uuid.uuid4()
 

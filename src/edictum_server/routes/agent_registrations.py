@@ -1,7 +1,7 @@
 """Agent registration management endpoints (dashboard auth)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.auth.dependencies import AuthContext, require_dashboard_auth

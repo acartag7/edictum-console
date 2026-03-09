@@ -8,7 +8,7 @@ Risk if bypassed: DoS via overflow, SQL injection, path traversal.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 import pytest
 from httpx import AsyncClient

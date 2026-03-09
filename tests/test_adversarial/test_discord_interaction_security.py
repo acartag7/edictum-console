@@ -175,7 +175,7 @@ async def test_malformed_public_key_skipped(
 @pytest.mark.security
 async def test_cross_tenant_blocked(
     client: AsyncClient,
-    test_redis: fakeredis.aioredis.FakeRedis,
+    test_redis: fakeredis.aioredis.FakeRedis,  # noqa: ARG001
     discord_keypair: tuple[SigningKey, str],
     set_auth_tenant_b: Callable[[], None],
     set_auth_tenant_a: Callable[[], None],

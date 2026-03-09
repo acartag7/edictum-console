@@ -38,6 +38,7 @@ dev = [
     "mypy>=1.13",
     "httpx>=0.28",
     "aiosqlite>=0.20",
+    "fakeredis[lua]>=2.21",
     "types-PyYAML>=6.0",
 ]
 

@@ -88,7 +88,7 @@ async def create_rule(
         raise HTTPException(
             status_code=409,
             detail=f"Priority {body.priority} already exists for this tenant",
-        )
+        ) from None
 
     push.push_to_dashboard(
         auth.tenant_id,
@@ -114,7 +114,7 @@ async def update_rule(
     try:
         rule = await svc.update_rule(db, auth.tenant_id, rule_id, **kwargs)
     except IntegrityError:
-        raise HTTPException(status_code=409, detail="Priority conflict")
+        raise HTTPException(status_code=409, detail="Priority conflict") from None
 
     if not rule:
         raise HTTPException(status_code=404, detail="Rule not found")

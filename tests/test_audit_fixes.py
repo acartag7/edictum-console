@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Callable
+from datetime import UTC
 
 import fakeredis.aioredis
 import pytest
@@ -14,7 +15,6 @@ from edictum_server.auth.dependencies import AuthContext
 from edictum_server.db.models import Event
 from edictum_server.services.session_service import _validate_key
 from tests.conftest import TENANT_A_ID
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -151,8 +151,9 @@ async def test_telegram_redis_keys_have_ttl(
     test_redis: fakeredis.aioredis.FakeRedis,
 ) -> None:
     """HIGH-4: Telegram approval keys must have 7-day TTL."""
-    from edictum_server.notifications.telegram import TelegramChannel
     from unittest.mock import AsyncMock
+
+    from edictum_server.notifications.telegram import TelegramChannel
 
     mock_client = AsyncMock()
     mock_client.send_message.return_value = {"message_id": 123}
@@ -177,8 +178,8 @@ async def test_telegram_redis_keys_have_ttl(
     )
 
     # Check TTL on both keys
-    msg_ttl = await test_redis.ttl(f"telegram:msg:test-chan:abc-123")
-    tenant_ttl = await test_redis.ttl(f"telegram:tenant:test-chan:abc-123")
+    msg_ttl = await test_redis.ttl("telegram:msg:test-chan:abc-123")
+    tenant_ttl = await test_redis.ttl("telegram:tenant:test-chan:abc-123")
 
     seven_days = 86400 * 7
     # TTL should be approximately 7 days (allow 10s tolerance for test execution)
@@ -240,9 +241,9 @@ async def test_stats_handles_null_decision_name(
     client: AsyncClient,
 ) -> None:
     """BUG-8: Events with null/missing decision_name don't break stats."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     # Event with no decision_name in payload
     events = [
         _make_event("no-decision", payload={"reason": "no contract"}, timestamp=now),
@@ -265,9 +266,9 @@ async def test_contract_stats_handles_null_decision_name(
     client: AsyncClient,
 ) -> None:
     """BUG-8: Contract stats endpoint handles missing decision_name."""
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     events = [
         _make_event("null-decision", payload=None, timestamp=now),
         _make_event(

@@ -6,21 +6,6 @@ import asyncio
 import logging
 import uuid
 
-logger = logging.getLogger(__name__)
-
-
-def _fire(coro: object) -> None:
-    """Schedule a coroutine as a background task, logging any unhandled exception."""
-
-    async def _run() -> None:
-        try:
-            await coro  # type: ignore[misc]
-        except Exception:
-            logger.exception("Unhandled error in background notification task")
-
-    asyncio.create_task(_run())
-
-
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
@@ -45,6 +30,20 @@ from edictum_server.schemas.approvals import (
     SubmitDecisionRequest,
 )
 from edictum_server.services import approval_service
+
+logger = logging.getLogger(__name__)
+
+
+def _fire(coro: object) -> None:
+    """Schedule a coroutine as a background task, logging any unhandled exception."""
+
+    async def _run() -> None:
+        try:
+            await coro  # type: ignore[misc]
+        except Exception:
+            logger.exception("Unhandled error in background notification task")
+
+    asyncio.create_task(_run())
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["approvals"])
 

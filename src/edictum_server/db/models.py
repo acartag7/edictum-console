@@ -216,7 +216,10 @@ class Contract(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     """A single reusable governance rule in the contract library."""
     __tablename__ = "contracts"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "contract_id", "version", name="uq_contract_tenant_id_version"),
+        UniqueConstraint(
+            "tenant_id", "contract_id", "version",
+            name="uq_contract_tenant_id_version",
+        ),
         UniqueConstraint("tenant_id", "id", name="uq_contract_tenant_pk"),
     )
 
@@ -248,7 +251,9 @@ class BundleComposition(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     tools_config: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     observability: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str] = mapped_column(String)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
 
 
 class BundleCompositionItem(UUIDPrimaryKeyMixin, TimestampMixin, Base):
@@ -315,7 +320,9 @@ class TenantAiConfig(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     api_key_encrypted: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     model: Mapped[str | None] = mapped_column(String, nullable=True)
     base_url: Mapped[str | None] = mapped_column(String, nullable=True)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
     updated_by: Mapped[str] = mapped_column(String)
 
 

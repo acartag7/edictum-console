@@ -7,8 +7,6 @@ import uuid
 import pytest
 from httpx import AsyncClient
 
-from tests.conftest import TENANT_A_ID
-
 
 async def _create_tg_channel(client: AsyncClient, config: dict | None = None) -> dict:
     resp = await client.post(

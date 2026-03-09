@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, func, cast, String, tuple_
+from sqlalchemy import String, cast, func, select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import Bundle, Deployment, Event

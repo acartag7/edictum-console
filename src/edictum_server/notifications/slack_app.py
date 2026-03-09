@@ -157,7 +157,11 @@ class SlackAppChannel(NotificationChannel):
         reason: str | None,
     ) -> None:
         raw = await self._redis.get(self._msg_key(approval_id))
-        _label = {"approved": "Approved :white_check_mark:", "denied": "Denied :x:", "timeout": "Expired :hourglass_flowing_sand:"}
+        _label = {
+            "approved": "Approved :white_check_mark:",
+            "denied": "Denied :x:",
+            "timeout": "Expired :hourglass_flowing_sand:",
+        }
         label = _label.get(status, status.capitalize())
         body = f"*Decision:* {label}"
         if decided_by:

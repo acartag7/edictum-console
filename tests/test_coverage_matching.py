@@ -14,7 +14,6 @@ from edictum_server.services.coverage_matching import (
 )
 from edictum_server.services.coverage_service import parse_since
 
-
 # ---------------------------------------------------------------------------
 # match_tool
 # ---------------------------------------------------------------------------

@@ -197,7 +197,10 @@ async def get_composition_items(
             "position": item.position,
             "mode_override": item.mode_override,
             "enabled": item.enabled,
-            "has_newer_version": max_versions.get(contract.contract_id, contract.version) > contract.version,
+            "has_newer_version": (
+                max_versions.get(contract.contract_id, contract.version)
+                > contract.version
+            ),
         }
         for item, contract in rows
     ]

@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import uuid
-from datetime import datetime
-
 import pytest
 from httpx import AsyncClient
-from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from edictum_server.db.models import Bundle, Deployment
+from edictum_server.db.models import Deployment
 from edictum_server.services.bundle_service import (
     get_bundle_by_version,
     get_current_bundle,
@@ -151,7 +147,9 @@ async def test_deployed_envs_map_scoped(db_session: AsyncSession) -> None:
     devops_map = await get_deployed_envs_map(db_session, TENANT_A_ID, bundle_name="devops-agent")
     assert devops_map == {1: ["production"]}
 
-    research_map = await get_deployed_envs_map(db_session, TENANT_A_ID, bundle_name="research-agent")
+    research_map = await get_deployed_envs_map(
+        db_session, TENANT_A_ID, bundle_name="research-agent",
+    )
     assert research_map == {1: ["staging"]}
 
 
@@ -173,11 +171,15 @@ async def test_get_current_bundle_with_name(db_session: AsyncSession) -> None:
     ))
     await db_session.commit()
 
-    devops = await get_current_bundle(db_session, TENANT_A_ID, "production", bundle_name="devops-agent")
+    devops = await get_current_bundle(
+        db_session, TENANT_A_ID, "production", bundle_name="devops-agent",
+    )
     assert devops is not None
     assert devops.name == "devops-agent"
 
-    research = await get_current_bundle(db_session, TENANT_A_ID, "production", bundle_name="research-agent")
+    research = await get_current_bundle(
+        db_session, TENANT_A_ID, "production", bundle_name="research-agent",
+    )
     assert research is not None
     assert research.name == "research-agent"
 

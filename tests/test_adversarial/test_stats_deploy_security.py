@@ -11,7 +11,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import Deployment, Event
-from tests.conftest import TENANT_A_ID, TENANT_B_ID
+from tests.conftest import TENANT_A_ID
 
 
 @pytest.mark.security

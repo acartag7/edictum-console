@@ -242,7 +242,7 @@ class PushManager:
                 if conn.is_closed or (now - conn.connected_at) > MAX_CONNECTION_AGE
             }
             removed += len(stale)
-            conns -= stale
+            conns.difference_update(stale)
             if not conns:
                 empty_envs.append(env)
         for env in empty_envs:
@@ -256,7 +256,7 @@ class PushManager:
                 if (now - conn.connected_at) > MAX_CONNECTION_AGE
             }
             removed += len(stale)
-            conns -= stale
+            conns.difference_update(stale)
             if not conns:
                 empty_tenants.append(tenant_id)
         for tenant_id in empty_tenants:

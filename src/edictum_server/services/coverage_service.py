@@ -140,7 +140,8 @@ async def compute_coverage(
             all_matchers = manifest_to_matchers(manifest)
             manifest_source = True
 
-    classified = classify_tools(tool_rows, all_matchers, source="local" if manifest_source else "console")
+    source = "local" if manifest_source else "console"
+    classified = classify_tools(tool_rows, all_matchers, source=source)
     tools = [ToolCoverage(**t) for t in classified]
 
     enforced = sum(1 for t in tools if t.status == "enforced")
