@@ -55,3 +55,5 @@ SPEC-*.md
 .claude/agents/
 .claude/settings.json
 dashboard/.claude/
+docs/
+mkdocs.yml
