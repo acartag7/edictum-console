@@ -15,27 +15,30 @@ fi
 
 echo "Running database migrations..."
 # Advisory lock (id=43) prevents concurrent migration runs across instances.
-# The Python process holds the DB connection open while alembic runs,
-# so the lock is held for the full duration.  Other instances block here
-# until the first one finishes and releases the lock.
+# Uses asyncpg directly (already installed) — psycopg2 is not in deps.
 python3 -c "
-import os, subprocess, sys
-import sqlalchemy
-url = os.environ.get('EDICTUM_DATABASE_URL', '').replace('+asyncpg', '')
-if not url:
-    print('No EDICTUM_DATABASE_URL — running alembic without lock')
-    sys.exit(subprocess.run(['alembic', 'upgrade', 'head']).returncode)
-engine = sqlalchemy.create_engine(url)
-with engine.connect() as conn:
-    conn.execute(sqlalchemy.text('SELECT pg_advisory_lock(43)'))
-    conn.commit()
-    print('Migration lock acquired')
-    rc = subprocess.run(['alembic', 'upgrade', 'head']).returncode
-    conn.execute(sqlalchemy.text('SELECT pg_advisory_unlock(43)'))
-    conn.commit()
-    print('Migration lock released')
-engine.dispose()
-sys.exit(rc)
+import asyncio, os, subprocess, sys
+
+async def run_migrations():
+    import asyncpg
+    url = os.environ.get('EDICTUM_DATABASE_URL', '')
+    if not url:
+        print('No EDICTUM_DATABASE_URL — running alembic without lock')
+        sys.exit(subprocess.run(['alembic', 'upgrade', 'head']).returncode)
+    # asyncpg needs postgresql:// not postgresql+asyncpg://
+    dsn = url.replace('postgresql+asyncpg://', 'postgresql://')
+    conn = await asyncpg.connect(dsn)
+    try:
+        await conn.execute('SELECT pg_advisory_lock(43)')
+        print('Migration lock acquired')
+        rc = subprocess.run(['alembic', 'upgrade', 'head']).returncode
+        await conn.execute('SELECT pg_advisory_unlock(43)')
+        print('Migration lock released')
+    finally:
+        await conn.close()
+    sys.exit(rc)
+
+asyncio.run(run_migrations())
 "
 
 echo "Starting edictum-console..."
