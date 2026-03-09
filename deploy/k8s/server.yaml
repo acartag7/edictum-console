@@ -44,11 +44,23 @@ spec:
         # Change this value to trigger a rollout when the image tag stays the same
         edictum.dev/restart-trigger: "1"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: server
           image: edictum-console:latest
           # Set to Never for local builds, IfNotPresent for registry images
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 8000
           env:
