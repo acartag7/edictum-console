@@ -47,3 +47,11 @@ dashboard/.vite/
 
 to-implement/
 .CLAUDE.local.md
+
+# Internal dev files (not for public repo)
+.mcp.json
+AGENTS.md
+SPEC-*.md
+.claude/agents/
+.claude/settings.json
+dashboard/.claude/
