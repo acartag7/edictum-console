@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: write
+      contents: read
       issues: write
       id-token: write
 
@@ -216,11 +216,13 @@ jobs:
             python3 security/manage-baseline.py add <ID> --severity <level> --file <path> --description "<desc>"
             ```
 
-            If baseline.json was modified, commit and push:
+            If baseline.json was modified, create a PR (never push directly to main):
             ```bash
+            git checkout -b chore/security-sweep-$(date +%Y%m%d)
             git add security/baseline.json
             git commit -m "chore: update security baseline from weekly sweep"
-            git push
+            git push -u origin HEAD
+            gh pr create --title "chore: update security baseline" --body "Automated update from weekly security sweep." --label "security"
             ```
 
             ## Rules
