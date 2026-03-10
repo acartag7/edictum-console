@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hmac
 import json
 import logging
 import uuid
@@ -171,7 +172,7 @@ async def db_channel_webhook(
     # Validate the secret token header
     expected_secret = config.get("webhook_secret", "")
     actual_secret = request.headers.get("x-telegram-bot-api-secret-token", "")
-    if not expected_secret or actual_secret != expected_secret:
+    if not expected_secret or not hmac.compare_digest(actual_secret, expected_secret):
         return Response(status_code=403)
 
     try:

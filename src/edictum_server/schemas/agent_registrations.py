@@ -21,14 +21,14 @@ class AgentRegistrationResponse(BaseModel):
 
 
 class AgentRegistrationUpdate(BaseModel):
-    display_name: str | None = None
+    display_name: str | None = Field(default=None, max_length=255)
     tags: dict[str, Any] | None = None
-    bundle_name: str | None = None
+    bundle_name: str | None = Field(default=None, max_length=128)
 
 
 class BulkAssignRequest(BaseModel):
     agent_ids: list[str] = Field(..., min_length=1, max_length=100)
-    bundle_name: str
+    bundle_name: str = Field(..., max_length=128)
 
 
 class BulkAssignResponse(BaseModel):
@@ -41,16 +41,16 @@ class AssignmentRuleCreate(BaseModel):
     priority: int = Field(..., ge=0)
     pattern: str = Field(..., min_length=1, max_length=200)
     tag_match: dict[str, Any] | None = None
-    bundle_name: str = Field(..., min_length=1)
-    env: str = Field(..., min_length=1)
+    bundle_name: str = Field(..., min_length=1, max_length=128)
+    env: str = Field(..., min_length=1, max_length=64)
 
 
 class AssignmentRuleUpdate(BaseModel):
     priority: int | None = Field(default=None, ge=0)
     pattern: str | None = Field(default=None, min_length=1, max_length=200)
     tag_match: dict[str, Any] | None = None
-    bundle_name: str | None = Field(default=None, min_length=1)
-    env: str | None = Field(default=None, min_length=1)
+    bundle_name: str | None = Field(default=None, min_length=1, max_length=128)
+    env: str | None = Field(default=None, min_length=1, max_length=64)
 
 
 class AssignmentRuleResponse(BaseModel):

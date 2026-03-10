@@ -105,7 +105,7 @@ async def deploy_client(
 
     app.state.redis = test_redis
     app.state.push_manager = push_manager
-    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24)
+    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24, secret_key="test-secret-key-at-least-32-chars!")
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)

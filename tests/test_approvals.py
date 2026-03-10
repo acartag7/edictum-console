@@ -90,7 +90,7 @@ async def test_submit_decision_approve(client: AsyncClient) -> None:
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "approved"
-    assert data["decided_by"] == "admin"
+    assert data["decided_by"] == "admin@test.com"  # from auth context, not body
     assert data["decision_reason"] == "looks safe"
     assert data["decided_at"] is not None
 
@@ -104,7 +104,7 @@ async def test_submit_decision_deny(client: AsyncClient) -> None:
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "denied"
-    assert data["decided_by"] == "admin"
+    assert data["decided_by"] == "admin@test.com"  # from auth context, not body
     assert data["decision_reason"] == "too risky"
 
 

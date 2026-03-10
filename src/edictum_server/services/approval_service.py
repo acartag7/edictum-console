@@ -23,6 +23,13 @@ class _ApprovalExpired(ColumnElement[bool]):
     type = sa.Boolean()
 
 
+class _ApprovalNotExpired(ColumnElement[bool]):
+    """DB-portable expression: created_at + timeout_seconds > now()."""
+
+    inherit_cache = True
+    type = sa.Boolean()
+
+
 @compiles(_ApprovalExpired)
 def _compile_pg(element: Any, compiler: Any, **kw: Any) -> str:  # noqa: ARG001
     return "approvals.created_at + (approvals.timeout_seconds * interval '1 second') <= now()"
@@ -37,17 +44,38 @@ def _compile_sqlite(element: Any, compiler: Any, **kw: Any) -> str:  # noqa: ARG
     )
 
 
+@compiles(_ApprovalNotExpired)
+def _compile_not_expired_pg(element: Any, compiler: Any, **kw: Any) -> str:  # noqa: ARG001
+    return "approvals.created_at + (approvals.timeout_seconds * interval '1 second') > now()"
+
+
+@compiles(_ApprovalNotExpired, "sqlite")
+def _compile_not_expired_sqlite(element: Any, compiler: Any, **kw: Any) -> str:  # noqa: ARG001
+    return (
+        "(cast(strftime('%s', 'now') as integer)"
+        " - cast(strftime('%s', approvals.created_at) as integer))"
+        " < approvals.timeout_seconds"
+    )
+
+
 async def create_approval(
     db: AsyncSession,
     tenant_id: uuid.UUID,
     request: CreateApprovalRequest,
     *,
     env: str = "production",
+    agent_id: str | None = None,
 ) -> Approval:
-    """Create a pending approval request."""
+    """Create a pending approval request.
+
+    Args:
+        agent_id: Authenticated agent identity (from auth context).
+                  Takes priority over request.agent_id per CLAUDE.md rule:
+                  identity fields come from auth context, not request body.
+    """
     approval = Approval(
         tenant_id=tenant_id,
-        agent_id=request.agent_id,
+        agent_id=agent_id or request.agent_id,
         tool_name=request.tool_name,
         tool_args=request.tool_args,
         message=request.message,
@@ -102,11 +130,11 @@ async def submit_decision(
 ) -> Approval | None:
     """Submit a human decision on a pending approval.
 
-    Uses an atomic UPDATE with status='pending' in the WHERE clause to prevent
-    the TOCTOU race where two concurrent requests both read 'pending' and both
-    apply a decision. Only one request wins; the other gets None.
+    Uses an atomic UPDATE with status='pending' AND not-expired in the WHERE
+    clause to prevent both the TOCTOU race (concurrent decisions) and the
+    expiry race (approving after logical timeout but before worker runs).
 
-    Returns None if not found or already decided.
+    Returns None if not found, already decided, or logically expired.
     """
     result = await db.execute(
         update(Approval)
@@ -114,6 +142,7 @@ async def submit_decision(
             Approval.id == approval_id,
             Approval.tenant_id == tenant_id,
             Approval.status == "pending",
+            _ApprovalNotExpired(),
         )
         .values(
             status="approved" if approved else "denied",

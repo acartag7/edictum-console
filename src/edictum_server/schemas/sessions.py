@@ -14,7 +14,7 @@ class SessionValueResponse(BaseModel):
 class SetValueRequest(BaseModel):
     """Request body for setting a session key."""
 
-    value: str = Field(..., description="The string value to store")
+    value: str = Field(..., max_length=1_048_576, description="The string value to store")
 
 
 class IncrementRequest(BaseModel):

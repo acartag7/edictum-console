@@ -106,7 +106,8 @@ def _make_auth_a_api_key() -> AuthContext:
 
 def _make_auth_a_admin() -> AuthContext:
     return AuthContext(
-        tenant_id=TENANT_A_ID, auth_type="dashboard", user_id="user_test_123", is_admin=True
+        tenant_id=TENANT_A_ID, auth_type="dashboard", user_id="user_test_123",
+        email="admin@test.com", is_admin=True,
     )
 
 
@@ -155,7 +156,7 @@ async def client(
     # Set app state for routes that access it directly
     app.state.redis = test_redis
     app.state.push_manager = push_manager
-    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24)
+    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24, secret_key="test-secret-key-at-least-32-chars!")
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
@@ -182,7 +183,7 @@ async def no_auth_client(
 
     app.state.redis = test_redis
     app.state.push_manager = push_manager
-    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24)
+    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24, secret_key="test-secret-key-at-least-32-chars!")
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)

@@ -10,19 +10,29 @@ from pydantic import BaseModel, Field
 class PrincipalInput(BaseModel):
     """Optional principal context for evaluation."""
 
-    user_id: str | None = None
-    role: str | None = None
+    user_id: str | None = Field(default=None, max_length=255)
+    role: str | None = Field(default=None, max_length=255)
     claims: dict[str, Any] | None = None
 
 
 class EvaluateRequest(BaseModel):
     """Request body for contract evaluation playground."""
 
-    yaml_content: str = Field(..., description="YAML contract bundle to evaluate against")
-    tool_name: str = Field(..., description="Tool name to simulate")
-    tool_args: dict[str, Any] = Field(default_factory=dict, description="Tool arguments")
-    environment: str = Field(default="production", description="Environment context")
-    agent_id: str = Field(default="test-agent", description="Simulated agent ID")
+    yaml_content: str = Field(
+        ..., max_length=1_048_576, description="YAML contract bundle to evaluate against",
+    )
+    tool_name: str = Field(
+        ..., max_length=255, description="Tool name to simulate",
+    )
+    tool_args: dict[str, Any] = Field(
+        default_factory=dict, description="Tool arguments",
+    )
+    environment: str = Field(
+        default="production", max_length=64, description="Environment context",
+    )
+    agent_id: str = Field(
+        default="test-agent", max_length=255, description="Simulated agent ID",
+    )
     principal: PrincipalInput | None = Field(
         default=None, description="Optional principal identity"
     )

@@ -41,7 +41,9 @@ class AgentManifest(BaseModel):
 class EventBatchRequest(BaseModel):
     """Batch of events sent by an agent in a single HTTP call."""
 
-    events: list[EventPayload] = Field(..., min_length=1, description="One or more audit events")
+    events: list[EventPayload] = Field(
+        ..., min_length=1, max_length=1000, description="One or more audit events",
+    )
     agent_manifest: AgentManifest | None = Field(
         default=None, description="Optional contract manifest from Gate agents"
     )

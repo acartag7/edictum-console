@@ -42,6 +42,6 @@ async def test_upload_fires_bundle_uploaded_sse(
     assert event["bundle_name"] == "devops-agent"
     assert event["version"] == 1
     assert "revision_hash" in event
-    assert event["uploaded_by"] == "user_test_123"
+    assert event["uploaded_by"] == "admin@test.com"
 
     push_manager.unsubscribe_dashboard(TENANT_A_ID, conn)

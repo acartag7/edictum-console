@@ -78,7 +78,7 @@ async def test_upload_extracts_name(client: AsyncClient) -> None:
     assert data["name"] == "devops-agent"
     assert data["version"] == 1
     assert data["revision_hash"]
-    assert data["uploaded_by"] == "user_test_123"
+    assert data["uploaded_by"] == "admin@test.com"
 
 
 async def test_upload_same_name_increments_version(client: AsyncClient) -> None:

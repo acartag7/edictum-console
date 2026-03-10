@@ -11,14 +11,14 @@ ApprovalStatusType = Literal["pending", "approved", "denied", "timeout"]
 
 
 class CreateApprovalRequest(BaseModel):
-    agent_id: str
-    tool_name: str
+    agent_id: str = Field(..., max_length=255)
+    tool_name: str = Field(..., max_length=255)
     tool_args: dict[str, Any] | None = None
-    message: str
+    message: str = Field(..., max_length=10_000)
     timeout: int = Field(default=300, ge=1, le=86400)
     timeout_effect: Literal["deny", "allow"] = "deny"
-    decision_source: str | None = None
-    contract_name: str | None = None
+    decision_source: str | None = Field(default=None, max_length=255)
+    contract_name: str | None = Field(default=None, max_length=255)
 
 
 class ApprovalResponse(BaseModel):
@@ -42,6 +42,6 @@ class ApprovalResponse(BaseModel):
 
 class SubmitDecisionRequest(BaseModel):
     approved: bool
-    decided_by: str | None = None
-    reason: str | None = None
-    decided_via: str | None = None
+    decided_by: str | None = Field(default=None, max_length=255)
+    reason: str | None = Field(default=None, max_length=2000)
+    decided_via: str | None = Field(default=None, max_length=64)
