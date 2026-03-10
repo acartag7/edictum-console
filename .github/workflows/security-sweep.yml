@@ -1,0 +1,233 @@
+name: Security Sweep
+
+on:
+  schedule:
+    # Every Saturday at 6:00 UTC
+    - cron: "0 6 * * 6"
+  workflow_dispatch:
+    inputs:
+      full_sweep:
+        description: "Run full sweep (ignores baseline, reports everything)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: security-sweep
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Run Security Sweep
+        uses: anthropics/claude-code-action@9469d113c6afd29550c402740f22d1a97dd1209b # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          model: claude-sonnet-4-6
+          claude_args: '--max-turns 80 --allowedTools "Bash(git:*),Bash(gh:*),Bash(python3:*),Bash(cat:*),Bash(grep:*),Bash(wc:*),Read,Glob,Grep,Write"'
+          prompt: |
+            You are a security auditor performing a full adversarial sweep of the Edictum Console codebase. This is a **security product** — a self-hostable agent operations console. A single vulnerability doesn't create a bug; it destroys the credibility of a startup that sells trust.
+
+            **Think like an attacker. Be paranoid. Be thorough.**
+
+            ## Context
+
+            Read these files first:
+            - `CLAUDE.md` — architecture, security boundaries S1-S8, coding standards
+            - `security/baseline.json` — known findings from previous audits
+            - `SDK_COMPAT.md` — API contract
+
+            Full sweep mode: ${{ inputs.full_sweep || 'false' }}
+            If full sweep is false, only report NEW findings not already in baseline.json.
+
+            ## Audit scope — 8 attack surfaces
+
+            Systematically audit each attack surface. For each, read ALL relevant source files (not just samples).
+
+            ### 1. Authentication & Session Security (S1, S2, S7, S8)
+
+            Read: `auth/local.py`, `auth/api_keys.py`, `routes/auth.py`, `routes/setup.py`, `config.py`
+
+            Attack questions:
+            - Can I forge, replay, or extend a session token?
+            - Is session data integrity-protected (signed/HMAC'd) or plain JSON in Redis?
+            - Can I brute-force login? What are the rate limits? Can I bypass them with IP spoofing?
+            - Can I re-run bootstrap after an admin exists? From multiple concurrent requests?
+            - Are API key hashes timing-safe? Can I enumerate valid key prefixes?
+            - Is `EDICTUM_SECRET_KEY` actually used for anything?
+
+            ### 2. Tenant Isolation (S3) — highest priority
+
+            Read: ALL files in `routes/` and `services/`. Every single one.
+
+            Attack questions:
+            - Does every `select()`, `update()`, `delete()` have a `tenant_id` filter?
+            - Can I access tenant B's resources by manipulating IDs in requests?
+            - Do error messages (404 vs 403) reveal resource existence in other tenants?
+            - Do list endpoints leak cross-tenant counts or metadata?
+            - Do webhook handlers scope queries by `tenant_id`?
+            - Can I manipulate headers (`X-Tenant-Id`, `X-Forwarded-For`) to switch context?
+
+            ### 3. Approval & Governance Integrity (S4)
+
+            Read: `services/approval_service.py`, `routes/approvals.py`
+
+            Attack questions:
+            - Can I approve a request after it has logically expired (race the timeout worker)?
+            - Can I spoof `decided_by` or `agent_id` via request body?
+            - Can I replay an old approval decision?
+            - Are state transitions atomic (UPDATE WHERE status='pending' RETURNING)?
+            - Can I create an approval for another tenant's agent?
+
+            ### 4. Input Validation & DoS
+
+            Read: ALL files in `schemas/`. Check every `str` and `list` field.
+
+            Attack questions:
+            - Which `str` fields lack `max_length`? (each is a DoS vector)
+            - Which `list` fields lack `max_length`? (batch endpoint memory bomb)
+            - Is there a global request body size limit?
+            - Can I send null bytes, YAML bombs, deeply nested JSON?
+            - Are email fields validated with `EmailStr`?
+
+            ### 5. Secrets & Cryptography
+
+            Read: `auth/local.py`, `services/signing_service.py`, `services/notification_service.py`, `config.py`
+
+            Attack questions:
+            - Are all secret comparisons timing-safe (`hmac.compare_digest`)?
+            - Is session data HMAC-signed or plain text in Redis?
+            - Is the same encryption key used for multiple purposes (signing keys, notification configs, AI keys)?
+            - Are there plaintext fallback paths for encrypted data?
+            - Is the secret key minimum length enforced?
+
+            ### 6. SSRF & Outbound Requests
+
+            Read: `services/notification_service.py`, `services/ai_service.py`, `services/channel_test_helpers.py`, `notifications/*.py`
+
+            Attack questions:
+            - Do all outbound HTTP calls use `SafeTransport`?
+            - Can I set `base_url` to `http://169.254.169.254` (cloud metadata)?
+            - Is there a DNS rebinding gap between URL validation and actual request?
+            - Can I use the channel test endpoint as an SSRF proxy?
+
+            ### 7. SSE & Real-time (S5)
+
+            Read: `routes/stream.py`, `push/manager.py`
+
+            Attack questions:
+            - Can I connect without valid auth? With a revoked API key?
+            - After reconnection, could I receive events from a different tenant?
+            - Is there a per-tenant connection limit? Can I exhaust server resources?
+            - Does the SSE endpoint return 401 (not 422) for missing auth?
+
+            ### 8. Infrastructure & Configuration
+
+            Read: `docker-compose.yml`, `docker-entrypoint.sh`, `Dockerfile`, `main.py`, `db/engine.py`
+
+            Attack questions:
+            - Does Redis require a password?
+            - Are security headers set (HSTS, CSP, X-Frame-Options)?
+            - Does uvicorn have concurrency/timeout limits?
+            - Is the DB connection pool configured or using defaults?
+            - Does Postgres use a non-superuser account?
+            - Are Docker networks isolated?
+            - Are Python dependencies pinned?
+
+            ## Output
+
+            ### Step 1: Write findings to /tmp/sweep-report.md
+
+            Format:
+            ```
+            # Security Sweep Report — [date]
+
+            ## New Findings (not in baseline)
+
+            ### [SEVERITY] Finding ID — Short title
+            **File:** path:line
+            **Attack:** How an attacker would exploit this
+            **Fix:** Concrete code change
+            **Effort:** estimated minutes
+
+            ## Regressions (fixed findings that reappeared)
+
+            ## Baseline Findings Still Open
+
+            | ID | Severity | Status | Issue | Description |
+            |...
+
+            ## What's Working Well
+            - List of security controls verified as correct
+            ```
+
+            ### Step 2: Create a GitHub issue with the report
+
+            Only if there are NEW findings or regressions:
+
+            ```bash
+            gh issue create \
+              --title "Security Sweep [date]: [N] new findings" \
+              --label "security" \
+              --body-file /tmp/sweep-report.md
+            ```
+
+            If clean (no new findings, no regressions):
+            ```bash
+            echo "Security sweep clean — no new findings or regressions."
+            ```
+
+            ### Step 3: Update baseline.json
+
+            For any finding in baseline.json with status "fix-planned" that you verified is actually fixed in the current code:
+            ```bash
+            python3 security/manage-baseline.py fix <FINDING_ID> --commit $(git rev-parse HEAD)
+            ```
+
+            For any new finding not in baseline.json, add it:
+            ```bash
+            python3 security/manage-baseline.py add <ID> --severity <level> --file <path> --description "<desc>"
+            ```
+
+            If baseline.json was modified, create a PR (never push directly to main):
+            ```bash
+            git checkout -b chore/security-sweep-$(date +%Y%m%d)
+            git add security/baseline.json
+            git commit -m "chore: update security baseline from weekly sweep"
+            git push -u origin HEAD
+            gh pr create --title "chore: update security baseline" --body "Automated update from weekly security sweep." --label "security"
+            ```
+
+            ## Rules
+            - Read EVERY file in the relevant directories, not just samples
+            - Compare every finding against baseline.json before reporting
+            - A finding already in baseline with status "fix-planned" is NOT new — skip it
+            - A finding in baseline with status "fixed" that still exists IS a regression — flag it loudly
+            - Be thorough but don't manufacture findings — if the code is secure, say so
+            - Include concrete exploit scenarios, not just "this could be a problem"

@@ -124,6 +124,12 @@ Phase 0 alone (auth + API keys) is infrastructure without a payoff. Phase 1 (con
 - Route functions are thin — validate input, call service, return response. Business logic lives in `services/`.
 - No hardcoded URLs. Everything from settings/env vars.
 - Secrets: no dangerous defaults. Admin password must be explicitly set.
+- **Timing-safe comparisons for all secrets.** Always `hmac.compare_digest(a, b)` — never `==` or `!=` for tokens, API keys, webhook secrets, or any credential. Python's `==` short-circuits on first differing byte, enabling byte-by-byte brute force via timing oracle.
+- **All Pydantic string fields must have `max_length`.** Every `str` field in request schemas needs `max_length` (default: 1MB for content fields, 255 for names/emails, 64 for identifiers). Every `list` field needs `max_length`. Unbounded inputs are DoS vectors. No exceptions.
+- **Identity fields come from auth context, not request body.** `decided_by`, `created_by`, `agent_id` in approval/audit operations must come from the authenticated session or API key — never from user-supplied `body.*`. The request body is attacker-controlled; the auth context is verified.
+- **Outbound HTTP must use `SafeTransport`.** All outbound HTTP calls (webhooks, channel tests, AI provider proxying) must validate URLs against private/link-local networks. Never create a raw `httpx.AsyncClient()` for user-supplied URLs. Use `SafeTransport()` to block SSRF.
+- **Redis keys must have TTL.** Every `redis.set()` call must include `ex=` with a bounded TTL. Keys without TTL persist forever, enabling Redis memory exhaustion. Session state: 7 days. Rate limit windows: match the window. Ephemeral data: 1 hour max.
+- **Webhook/callback handlers must filter by `tenant_id`.** Principle #8 applies to webhook routes too, not just user-facing API routes. Even when signature verification authenticates the source, queries in webhook handlers must include `tenant_id`. Cross-check: the resolved `tenant_id` must match the channel's own `tenant_id`.
 
 ### React/TypeScript (Frontend)
 
@@ -266,8 +272,22 @@ Minimum ~43 adversarial tests before first push.
 ### CI
 
 - `pytest -m security` runs on every PR — adversarial test failure = merge blocker.
-- `bandit -r src/ -ll -ii --exclude tests/` runs before releases.
 - Any PR that adds or modifies a security boundary without adversarial tests is a merge blocker. The reviewer asks: **"Show me the bypass tests."**
+
+**Tiered security checks (`.github/workflows/security.yml`):**
+
+| Trigger | Checks | Cost |
+|---------|--------|------|
+| Every PR | `bandit -r src/ -ll -ii --exclude tests/`, `pip-audit`, `pnpm audit`, 3 custom lint scripts (tenant isolation, input bounds, timing-safe comparisons) — **lint scripts are non-blocking (`continue-on-error`) until pre-existing issues #12-#28 are resolved** | Free, ~10s |
+| Every PR | Claude code review via `review.yml` — reads diff, applies `code-reviewer.md` checklist, posts sticky PR comment | Claude OAuth (subscription) |
+| Weekly / pre-release | Full security sweep against `security/baseline.json` — only surfaces new or regressed findings | Claude OAuth |
+
+**Custom lint scripts (`scripts/security-lint/`):**
+- `check_tenant_isolation.py` — AST-walks `routes/` and `services/`, flags `select()`/`update()` without `.where(*.tenant_id`.
+- `check_input_bounds.py` — AST-walks `schemas/`, flags `str`/`list` fields without `max_length`.
+- `check_timing_safe.py` — greps for `!= expected` or `== secret` patterns near secret/token/key variables, flags if not using `hmac.compare_digest`.
+
+**Security baseline (`security/baseline.json`):** Known findings with status (`fix-planned`, `fixed`, `accepted`, `regression`). Weekly sweep diffs against baseline — only new or regressed findings are flagged.
 
 ## File Serving Layout
 
@@ -303,8 +323,8 @@ FSL-1.1-ALv2 (Functional Source License). Source available, converts to Apache 2
 
 Edictum is three repos that work together. This is the **server companion** to the core library.
 
-- **edictum** (core): `/Users/acartagena/project/edictum` — MIT Python library agents use for runtime contract enforcement. Console never evaluates contracts in production (agents do). Console stores events, manages approvals, pushes contract updates.
-- **edictum-hub**: `/Users/acartagena/project/edictum-hub` — Next.js 16 public website at edictum.ai. Hub's dashboard calls this server's API. API contract documented in `SDK_COMPAT.md`.
+- **edictum** (core): [`edictum-ai/edictum`](https://github.com/edictum-ai/edictum) — MIT Python library agents use for runtime contract enforcement. Console never evaluates contracts in production (agents do). Console stores events, manages approvals, pushes contract updates.
+- **edictum-hub**: [`edictum-ai/edictum-hub`](https://github.com/edictum-ai/edictum-hub) — Next.js 16 public website at edictum.ai. Hub's dashboard calls this server's API. API contract documented in `SDK_COMPAT.md`.
 
 **Integration rules:**
 - `pip install edictum[server]` is the bridge. Server SDK implements core protocols (`ApprovalBackend`, `AuditSink`, `StorageBackend`) over HTTP.
@@ -332,3 +352,5 @@ Edictum is three repos that work together. This is the **server companion** to t
 | Protocols only where second impl is planned | AuthProvider (OIDC planned) and NotificationChannel (Slack planned) get ABCs. No ObservabilitySink until OTLP is actually being built. Balance between pluggability and premature abstraction. |
 | DDD layer rules | Services never import routes. Routes are thin. Infrastructure injected via dependencies. Keeps the codebase navigable for both humans and AI. |
 | Keep `/api/v1/setup` endpoint | Frontend bootstrap wizard (`/dashboard/setup`) uses this endpoint for interactive first-run. Env-var bootstrap via `_bootstrap_admin()` in lifespan is an alternative path, not the only path. Both are protected by S7 bootstrap lock. |
+| Tiered security CI | Full 8-agent sweep daily is overkill (alert fatigue). Instead: free static checks on every PR, focused agent review on security-boundary PRs, full sweep weekly against a known-findings baseline. 3 custom lint scripts catch ~12 of 37 audit findings for free. |
+| 6 security coding standards in CLAUDE.md | Codify patterns from 2026-03-10 security audit as mandatory rules: timing-safe comparisons, max_length on all fields, identity from auth context, SafeTransport for outbound HTTP, TTL on all Redis keys, tenant_id on webhook handlers. Prevents recurrence. |

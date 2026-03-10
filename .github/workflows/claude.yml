@@ -10,10 +10,13 @@ on:
   pull_request_review:
     types: [submitted]
 
+concurrency:
+  group: claude-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   claude:
-    # Author association guard: only org members, repo owners, and collaborators can trigger.
-    # Prevents arbitrary users from invoking Claude with write permissions via @claude comments.
+    # Only org members, owners, and collaborators can trigger @claude.
     if: |
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') &&
        (github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER' || github.event.comment.author_association == 'COLLABORATOR')) ||
@@ -24,6 +27,7 @@ jobs:
       (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
        (github.event.issue.author_association == 'MEMBER' || github.event.issue.author_association == 'OWNER' || github.event.issue.author_association == 'COLLABORATOR'))
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write
@@ -36,18 +40,20 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@9469d113c6afd29550c402740f22d1a97dd1209b # v1
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ steps.app-token.outputs.token }}
+          model: claude-sonnet-4-6
+          claude_args: '--max-turns 30 --allowedTools "Bash(git:*),Bash(gh:*),Bash(pytest:*),Bash(python3:*),Bash(ruff:*),Bash(mypy:*),Bash(pnpm:*),Read,Glob,Grep,Write,Edit"'
           additional_permissions: |
             actions: read
-          claude_args: '--model glm-5 --max-turns 10'
-        env:
-          ANTHROPIC_BASE_URL: https://api.z.ai/api/anthropic
-          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_API_KEY }}
-          API_TIMEOUT_MS: "3000000"
-          ANTHROPIC_DEFAULT_HAIKU_MODEL: glm-4.5-air
-          ANTHROPIC_DEFAULT_SONNET_MODEL: glm-5
-          ANTHROPIC_DEFAULT_OPUS_MODEL: glm-5

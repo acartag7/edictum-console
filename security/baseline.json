@@ -1,0 +1,143 @@
+{
+  "version": "1.0",
+  "last_full_audit": "2026-03-10",
+  "app_version": "0.1.0",
+  "findings": {
+    "H2-security-headers": {
+      "status": "fix-planned",
+      "severity": "high",
+      "issue": 12,
+      "file": "src/edictum_server/main.py",
+      "description": "Missing security response headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options)",
+      "found": "2026-03-10"
+    },
+    "H1-https-downgrade": {
+      "status": "fix-planned",
+      "severity": "high",
+      "issue": 13,
+      "file": "src/edictum_server/config.py",
+      "description": "HTTPS to HTTP downgrade redirect + misconfigured trusted proxies",
+      "found": "2026-03-10"
+    },
+    "M1-null-byte": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 14,
+      "file": "src/edictum_server/routes/auth.py",
+      "description": "Null byte in login email causes 500 Internal Server Error",
+      "found": "2026-03-10"
+    },
+    "M2-timing-oracle": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 15,
+      "file": "src/edictum_server/routes/auth.py",
+      "description": "Timing side-channel on login enables account enumeration",
+      "found": "2026-03-10"
+    },
+    "M3-body-size": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 16,
+      "file": "src/edictum_server/main.py",
+      "description": "No request body size limit - 10MB payloads accepted on all endpoints",
+      "found": "2026-03-10"
+    },
+    "M5-health-disclosure": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 17,
+      "file": "src/edictum_server/routes/health.py",
+      "description": "Health endpoint discloses version, infra details, and worker states without auth",
+      "found": "2026-03-10"
+    },
+    "L1-api-hardening": {
+      "status": "fix-planned",
+      "severity": "low",
+      "issue": 18,
+      "file": "src/edictum_server/main.py",
+      "description": "Minor API hardening: SSE 422 to 401, CORS wildcards, Pydantic detail leakage",
+      "found": "2026-03-10"
+    },
+    "C1-approval-race": {
+      "status": "fix-planned",
+      "severity": "critical",
+      "issue": 19,
+      "file": "src/edictum_server/services/approval_service.py",
+      "description": "Expired approvals can be approved during race window between logical expiry and timeout worker",
+      "found": "2026-03-10"
+    },
+    "C2-unsigned-sessions": {
+      "status": "fix-planned",
+      "severity": "critical",
+      "issue": 20,
+      "file": "src/edictum_server/auth/local.py",
+      "description": "Sessions stored unsigned in Redis - EDICTUM_SECRET_KEY required but never used",
+      "found": "2026-03-10"
+    },
+    "H1-webhook-security": {
+      "status": "fix-planned",
+      "severity": "high",
+      "issue": 21,
+      "file": "src/edictum_server/routes/telegram.py",
+      "description": "Telegram webhook secret comparison not timing-safe + webhook endpoints missing tenant filters",
+      "found": "2026-03-10"
+    },
+    "H6-server-hardening": {
+      "status": "fix-planned",
+      "severity": "high",
+      "issue": 22,
+      "file": "docker-entrypoint.sh",
+      "description": "Server hardening: uvicorn limits, DB pool config, Docker network isolation",
+      "found": "2026-03-10"
+    },
+    "M4-ssrf": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 23,
+      "file": "src/edictum_server/services/notification_service.py",
+      "description": "SSRF bypass in notification channel test + AI provider base_url",
+      "found": "2026-03-10"
+    },
+    "M6-rate-limiting": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 24,
+      "file": "src/edictum_server/rate_limit.py",
+      "description": "Rate limiting gaps: per-tenant SSE, per-email login, setup endpoint, atomic ops",
+      "found": "2026-03-10"
+    },
+    "M10-encryption": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 25,
+      "file": "src/edictum_server/services/notification_service.py",
+      "description": "Encryption: plaintext config fallback + signing key reused for multiple purposes",
+      "found": "2026-03-10"
+    },
+    "M13-pagination": {
+      "status": "fix-planned",
+      "severity": "medium",
+      "issue": 26,
+      "file": "src/edictum_server/routes/bundles.py",
+      "description": "Unbounded list endpoints + approval offset pagination",
+      "found": "2026-03-10"
+    },
+    "L6-input-validation": {
+      "status": "fix-planned",
+      "severity": "low",
+      "issue": 27,
+      "file": "src/edictum_server/routes/auth.py",
+      "description": "Input validation: email validation, Telegram HTML injection, null bytes",
+      "found": "2026-03-10"
+    },
+    "L7-dependency-pinning": {
+      "status": "fix-planned",
+      "severity": "low",
+      "issue": 28,
+      "file": "pyproject.toml",
+      "description": "Dependency pinning: no lock file for Python dependencies",
+      "found": "2026-03-10"
+    }
+  }
+}

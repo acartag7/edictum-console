@@ -52,7 +52,8 @@ to-implement/
 .mcp.json
 AGENTS.md
 SPEC-*.md
-.claude/agents/
+PROMPT-*.md
+SECURITY-AUDIT-*.md
 .claude/settings.json
 dashboard/.claude/
 docs/
