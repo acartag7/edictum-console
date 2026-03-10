@@ -5,6 +5,12 @@ Risk if bypassed: Full account takeover.
 
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
+import time
+import uuid
+
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -122,5 +128,96 @@ async def test_sql_injection_in_cookie_value(no_auth_client: AsyncClient) -> Non
     resp = await no_auth_client.get(
         "/api/v1/auth/me",
         cookies={"edictum_session": "' OR 1=1; DROP TABLE users; --"},
+    )
+    assert resp.status_code == 401
+
+
+async def test_hmac_wrong_key_rejected(
+    no_auth_client: AsyncClient,
+    db_session: AsyncSession,  # noqa: ARG001
+    test_redis,
+    _user_with_session: tuple[str, str],
+) -> None:
+    """A session signed with the wrong key must be rejected (401)."""
+    cookie, _ = _user_with_session
+    payload = json.dumps({
+        "user_id": str(uuid.uuid4()),
+        "tenant_id": str(uuid.uuid4()),
+        "email": "attacker@evil.com",
+        "is_admin": True,
+        "created_at": time.time(),
+    })
+    bad_mac = hmac.new(
+        b"wrong-key-not-the-real-secret",
+        payload.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+    await test_redis.set(f"session:{cookie}", f"{bad_mac}:{payload}")
+
+    resp = await no_auth_client.get(
+        "/api/v1/auth/me",
+        cookies={"edictum_session": cookie},
+    )
+    assert resp.status_code == 401
+
+
+async def test_hmac_tampered_payload_rejected(
+    no_auth_client: AsyncClient,
+    db_session: AsyncSession,  # noqa: ARG001
+    test_redis,
+    _user_with_session: tuple[str, str],
+) -> None:
+    """Modifying session JSON after signing must be rejected.
+
+    Attack: read a valid signed session from Redis, keep the HMAC prefix,
+    replace the JSON payload with an escalated identity. The HMAC no longer
+    matches the payload so authenticate() must return 401.
+    """
+    cookie, _ = _user_with_session
+    original = await test_redis.get(f"session:{cookie}")
+    real_mac, _, _ = original.partition(":")
+
+    forged_payload = json.dumps({
+        "user_id": str(uuid.uuid4()),
+        "tenant_id": str(uuid.uuid4()),
+        "email": "forged@evil.com",
+        "is_admin": True,
+        "created_at": time.time(),
+    })
+    await test_redis.set(
+        f"session:{cookie}", f"{real_mac}:{forged_payload}",
+    )
+
+    resp = await no_auth_client.get(
+        "/api/v1/auth/me",
+        cookies={"edictum_session": cookie},
+    )
+    assert resp.status_code == 401
+
+
+async def test_unsigned_legacy_session_rejected(
+    no_auth_client: AsyncClient,
+    db_session: AsyncSession,  # noqa: ARG001
+    test_redis,
+    _user_with_session: tuple[str, str],
+) -> None:
+    """A plain JSON session (no HMAC prefix) must be rejected.
+
+    Simulates a pre-signing legacy session or an attacker who writes
+    raw JSON directly to Redis without computing an HMAC.
+    """
+    cookie, _ = _user_with_session
+    raw_json = json.dumps({
+        "user_id": str(uuid.uuid4()),
+        "tenant_id": str(uuid.uuid4()),
+        "email": "legacy@evil.com",
+        "is_admin": True,
+    })
+    # No "mac:" prefix — just plain JSON
+    await test_redis.set(f"session:{cookie}", raw_json)
+
+    resp = await no_auth_client.get(
+        "/api/v1/auth/me",
+        cookies={"edictum_session": cookie},
     )
     assert resp.status_code == 401

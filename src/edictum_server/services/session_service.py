@@ -54,12 +54,17 @@ async def increment_session_value(
     key: str,
     amount: float = 1,
 ) -> float:
-    """Atomically increment a numeric session key. Returns the new value."""
+    """Atomically increment a numeric session key. Returns the new value.
+
+    Uses a MULTI/EXEC transaction so incrbyfloat + expire execute
+    atomically — no TTL gap if the process crashes between calls.
+    """
     redis_key = _key(tenant_id, key)
-    result = float(await r.incrbyfloat(redis_key, amount))
-    # Ensure TTL is set — incrbyfloat doesn't set expiry on new keys
-    await r.expire(redis_key, _SESSION_STATE_TTL)
-    return result
+    async with r.pipeline(transaction=True) as pipe:
+        pipe.incrbyfloat(redis_key, amount)
+        pipe.expire(redis_key, _SESSION_STATE_TTL)
+        results = await pipe.execute()
+    return float(results[0])
 
 
 async def delete_session_value(
