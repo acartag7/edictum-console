@@ -52,7 +52,6 @@ to-implement/
 .mcp.json
 AGENTS.md
 SPEC-*.md
-.claude/agents/
 .claude/settings.json
 dashboard/.claude/
 docs/
