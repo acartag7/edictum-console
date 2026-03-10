@@ -29,8 +29,10 @@ class LocalAuthProvider(AuthProvider):
         session_ttl_hours: int = 24,
         *,
         secure_cookies: bool = False,
-        secret_key: str = "",
+        secret_key: str,
     ) -> None:
+        if not secret_key:
+            raise ValueError("secret_key must not be empty")
         self._redis = redis
         self._session_ttl = session_ttl_hours * 3600
         self._secure_cookies = secure_cookies

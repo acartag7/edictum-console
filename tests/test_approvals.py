@@ -35,7 +35,7 @@ async def _create_approval(client: AsyncClient, **overrides: object) -> dict:
 async def test_create_approval(client: AsyncClient) -> None:
     data = await _create_approval(client)
     assert data["status"] == "pending"
-    assert data["agent_id"] == "agent-1"
+    assert data["agent_id"] == "test-agent"  # from auth context, not body
     assert data["tool_name"] == "shell"
     assert data["message"] == "Agent wants to run a dangerous command"
     assert data["timeout_effect"] == "deny"
@@ -53,7 +53,7 @@ async def test_get_approval(client: AsyncClient) -> None:
     data = resp.json()
     assert data["id"] == created["id"]
     assert data["status"] == "pending"
-    assert data["agent_id"] == "agent-1"
+    assert data["agent_id"] == "test-agent"  # from auth context, not body
 
 
 async def test_get_approval_not_found(client: AsyncClient) -> None:

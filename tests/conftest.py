@@ -103,7 +103,10 @@ TENANT_B_ID = uuid.uuid4()
 
 
 def _make_auth_a_api_key() -> AuthContext:
-    return AuthContext(tenant_id=TENANT_A_ID, auth_type="api_key", env="production")
+    return AuthContext(
+        tenant_id=TENANT_A_ID, auth_type="api_key", env="production",
+        agent_id="test-agent", api_key_prefix="edk_production_test1234",
+    )
 
 
 def _make_auth_a_admin() -> AuthContext:
@@ -114,7 +117,10 @@ def _make_auth_a_admin() -> AuthContext:
 
 
 def _make_auth_b_api_key() -> AuthContext:
-    return AuthContext(tenant_id=TENANT_B_ID, auth_type="api_key", env="production")
+    return AuthContext(
+        tenant_id=TENANT_B_ID, auth_type="api_key", env="production",
+        agent_id="test-agent-b", api_key_prefix="edk_production_test5678",
+    )
 
 
 def _make_auth_b_admin() -> AuthContext:

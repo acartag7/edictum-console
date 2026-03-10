@@ -92,7 +92,7 @@ async def create_approval(
 
     env = auth.env or "production"
     # Identity from auth context, not request body (CLAUDE.md rule)
-    agent_id = auth.agent_id or body.agent_id or "unknown"
+    agent_id = auth.agent_id or f"key:{auth.api_key_prefix or 'unknown'}"
     approval = await approval_service.create_approval(
         db, auth.tenant_id, body, env=env, agent_id=agent_id,
     )
