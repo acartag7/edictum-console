@@ -340,7 +340,7 @@ def cmd_report(args: argparse.Namespace) -> None:
 
     open_findings = {
         fid: f for fid, f in data["findings"].items()
-        if f["status"] not in ("fixed",)
+        if f["status"] not in ("fixed", "accepted")
     }
 
     sorted_findings = sorted(open_findings.items(), key=severity_sort_key)

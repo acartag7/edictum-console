@@ -219,10 +219,19 @@ def _field_call_has_max_length(node: ast.expr) -> bool:
 
 
 def _field_has_max_length(assign: ast.AnnAssign) -> bool:
-    """Return True if the assignment has a Field() default with max_length."""
-    if assign.value is None:
+    """Return True if max_length is declared as a default OR inside Annotated[...]."""
+    # Check assign.value (e.g. name: str = Field(max_length=255))
+    if assign.value is not None and _field_call_has_max_length(assign.value):
+        return True
+    # Check annotation for Annotated[str, Field(max_length=255)]
+    ann = assign.annotation
+    if not isinstance(ann, ast.Subscript):
         return False
-    return _field_call_has_max_length(assign.value)
+    if not (isinstance(ann.value, ast.Name) and ann.value.id == "Annotated"):
+        return False
+    if not isinstance(ann.slice, ast.Tuple):
+        return False
+    return any(_field_call_has_max_length(elt) for elt in ann.slice.elts[1:])
 
 
 # ---------------------------------------------------------------------------

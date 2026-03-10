@@ -278,7 +278,7 @@ Minimum ~43 adversarial tests before first push.
 
 | Trigger | Checks | Cost |
 |---------|--------|------|
-| Every PR | `bandit -r src/ -ll -ii --exclude tests/`, `pip-audit`, `pnpm audit`, 3 custom lint scripts (tenant isolation, input bounds, timing-safe comparisons) | Free, ~10s |
+| Every PR | `bandit -r src/ -ll -ii --exclude tests/`, `pip-audit`, `pnpm audit`, 3 custom lint scripts (tenant isolation, input bounds, timing-safe comparisons) — **lint scripts are non-blocking (`continue-on-error`) until pre-existing issues #12-#28 are resolved** | Free, ~10s |
 | Every PR | Claude code review via `review.yml` — reads diff, applies `code-reviewer.md` checklist, posts sticky PR comment | Claude OAuth (subscription) |
 | Weekly / pre-release | Full security sweep against `security/baseline.json` — only surfaces new or regressed findings | Claude OAuth |
 
