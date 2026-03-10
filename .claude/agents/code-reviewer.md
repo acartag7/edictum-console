@@ -137,6 +137,71 @@ If a lint script false-positives on the PR's changes, the fix is updating the al
 - GitHub Actions: untrusted input uses `env:` variables, never inline in `run:`
 - New dependency additions: flag for supply chain review
 
+### 13. Terminology (edictum style guide)
+
+All user-facing text must follow the canonical terminology from the edictum ecosystem (source of truth: [`edictum-ai/edictum:.docs-style-guide.md`](https://github.com/edictum-ai/edictum/blob/main/.docs-style-guide.md)). Check error messages, API response fields, UI labels, code comments, docstrings, and CLI output:
+
+| Canonical term | DO NOT USE |
+|----------------|------------|
+| **contract** / **contracts** | policies, rules, guards, checks |
+| **enforces contracts** | governs, guards, protects, secures |
+| **denied** / **deny** | blocked, rejected, prevented, stopped |
+| **allowed** / **allow** | passed, approved, permitted |
+| **pipeline** | engine, evaluator, processor, middleware |
+| **tool call** | function call, action, operation, invocation |
+| **adapter** | integration, plugin, connector, driver |
+| **observe mode** | shadow mode, dry run, passive mode, monitor mode |
+| **principal** | user (when meaning identity context), caller, actor |
+| **finding** | result, detection, alert, violation |
+| **contract bundle** | policy file, rule file, config |
+
+No marketing language: "powerful", "seamless", "revolutionary", "robust", "elegant" — just say what it does.
+
+### 14. Resource lifecycle
+
+Every resource that is opened must be closed — even on exception paths:
+- `httpx.AsyncClient` instances: must use `async with` or explicit `.aclose()` in a `finally` block
+- Database sessions, Redis connections: must use async context managers
+- Background tasks (`asyncio.Task`): verify cancellation on shutdown, no fire-and-forget without cleanup
+- SSE connections: verify cleanup on client disconnect (check `request.is_disconnected`)
+- Timers / intervals: clear on component unmount (frontend) or shutdown (backend)
+- **The test:** for every `open/create/start` in the diff, find the matching `close/cleanup/stop`. If it's not in a `finally` or context manager, flag it.
+
+### 15. Concurrency and race conditions
+
+Go beyond "can I trigger a race condition" — look for these specific anti-patterns:
+- **Check-then-act without lock:** `if not exists: create()` where another request can interleave between check and create
+- **TOCTOU (time-of-check-time-of-use):** reading a value, making a decision, then acting — the value can change between read and act
+- **`id()` as dictionary key:** Python's `id()` returns memory addresses that get recycled after GC — never use as a stable identifier for caching or deduplication
+- **Non-atomic file writes:** `path.write_text()` without tmp + `os.replace()` leaves partial files on crash — flag any file write that must be valid after restart
+- **Stale flags after state change:** boolean flags (`.connected`, `.ready`, `.bootstrapped`) not reset when the underlying state changes (disconnect, error, restart)
+- **Order-dependent operations without ordering guarantees:** two concurrent operations that restore/merge state can invert chronological order
+
+### 16. Cross-function consistency
+
+When two functions implement parallel or symmetric logic:
+- **CRUD siblings:** `create` and `update` for the same resource should validate the same fields, enforce the same constraints, emit the same audit events
+- **Status vs report:** if two functions define "open" or "active" differently, one is wrong
+- **Serialize vs deserialize:** round-trip must be lossless — check that every serialized field is deserialized and vice versa
+- **Public method vs inline logic:** if a class defines a method but another method does the same thing inline, the method is dead code and the inline logic bypasses any subclass override
+- If one function in a pair was modified by this PR, check whether the sibling needs the same change
+
+### 17. Dependency impact analysis
+
+Go beyond "flag new dependency additions":
+- **Pre-release transitive deps:** does the new/updated dependency pull in alpha/beta/rc packages? These have no API stability guarantees — flag for the PR author to acknowledge
+- **Major version downgrades:** a dependency update that DOWNGRADES a transitive dep (e.g., 2.0 → 1.0) is a red flag for API breakage
+- **Breaking minimum-version bumps:** raising a minimum version by many minor versions (e.g., `>=1.0` → `>=1.39`) breaks users pinned to older versions — needs justification
+- **Lock file churn:** large changes in lock file (`pnpm-lock.yaml`, `uv.lock`) relative to small changes in dependency spec — investigate what changed and why
+- Check both Python (`pyproject.toml`) and JavaScript (`package.json`) dependency changes
+
+### 18. Dead code and unreachable paths
+
+- **Implemented but never called:** classes, methods, or functions that are fully built but no code path invokes them — especially config-driven features where the config is never read
+- **Shadowed by inline logic:** a method exists on a class but callers do the same work inline, making the method unreachable and subclass overrides silently ignored
+- **No-op config options:** feature flags, settings, or config sections that are parsed but have no effect at runtime
+- **Orphaned after refactor:** functions that lost their only caller during a refactor in this PR
+
 ## Do NOT flag
 
 - Pre-existing issues not introduced by this PR

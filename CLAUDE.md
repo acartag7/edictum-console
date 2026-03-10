@@ -323,8 +323,8 @@ FSL-1.1-ALv2 (Functional Source License). Source available, converts to Apache 2
 
 Edictum is three repos that work together. This is the **server companion** to the core library.
 
-- **edictum** (core): `/Users/acartagena/project/edictum` — MIT Python library agents use for runtime contract enforcement. Console never evaluates contracts in production (agents do). Console stores events, manages approvals, pushes contract updates.
-- **edictum-hub**: `/Users/acartagena/project/edictum-hub` — Next.js 16 public website at edictum.ai. Hub's dashboard calls this server's API. API contract documented in `SDK_COMPAT.md`.
+- **edictum** (core): [`edictum-ai/edictum`](https://github.com/edictum-ai/edictum) — MIT Python library agents use for runtime contract enforcement. Console never evaluates contracts in production (agents do). Console stores events, manages approvals, pushes contract updates.
+- **edictum-hub**: [`edictum-ai/edictum-hub`](https://github.com/edictum-ai/edictum-hub) — Next.js 16 public website at edictum.ai. Hub's dashboard calls this server's API. API contract documented in `SDK_COMPAT.md`.
 
 **Integration rules:**
 - `pip install edictum[server]` is the bridge. Server SDK implements core protocols (`ApprovalBackend`, `AuditSink`, `StorageBackend`) over HTTP.
