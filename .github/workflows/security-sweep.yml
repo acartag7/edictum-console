@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
+      contents: write
       issues: write
       id-token: write
 
@@ -202,6 +202,25 @@ jobs:
             If clean (no new findings, no regressions):
             ```bash
             echo "Security sweep clean — no new findings or regressions."
+            ```
+
+            ### Step 3: Update baseline.json
+
+            For any finding in baseline.json with status "fix-planned" that you verified is actually fixed in the current code:
+            ```bash
+            python3 security/manage-baseline.py fix <FINDING_ID> --commit $(git rev-parse HEAD)
+            ```
+
+            For any new finding not in baseline.json, add it:
+            ```bash
+            python3 security/manage-baseline.py add <ID> --severity <level> --file <path> --description "<desc>"
+            ```
+
+            If baseline.json was modified, commit and push:
+            ```bash
+            git add security/baseline.json
+            git commit -m "chore: update security baseline from weekly sweep"
+            git push
             ```
 
             ## Rules

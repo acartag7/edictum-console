@@ -117,7 +117,18 @@ Check `lib/format.ts`, `lib/verdict-helpers.ts`, `lib/env-colors.ts`, `lib/paylo
 
 If any route changed, verify response shapes match `SDK_COMPAT.md`. SSE event name must be `contract_update`.
 
-### 11. General security
+### 11. Security tooling maintenance
+
+If the PR adds or modifies any of these, check that the security tooling stays in sync:
+
+- **New route or service without tenant_id** → add to `ALLOWED_FILES` or `ALLOWED_FUNCTIONS` in `scripts/security-lint/check_tenant_isolation.py` with a comment explaining why
+- **New Pydantic request schema** → verify `check_input_bounds.py` covers it (class name must contain Request/Create/Update/Upload/Import/Upsert/Batch). If a new field is legitimately unbounded (JSON blob), add to `ALLOWED_FIELDS`
+- **New secret/token comparison** → if it's legitimately not a secret (content hash, cache key), add to `SAFE_PATTERNS` in `check_timing_safe.py`
+- **Security fix landing** → run `python3 security/manage-baseline.py fix <FINDING_ID> --commit <SHA>` to update baseline
+
+If a lint script false-positives on the PR's changes, the fix is updating the allowlist in the same PR — not ignoring CI.
+
+### 12. General security
 
 - No hardcoded secrets, API keys, or credentials
 - No command injection with untrusted input
