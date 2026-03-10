@@ -22,7 +22,10 @@ async def redis() -> fakeredis.aioredis.FakeRedis:
 
 @pytest.fixture()
 def provider(redis: fakeredis.aioredis.FakeRedis) -> LocalAuthProvider:
-    return LocalAuthProvider(redis=redis, session_ttl_hours=24, secret_key="test-secret-key-at-least-32-chars!")
+    return LocalAuthProvider(
+        redis=redis, session_ttl_hours=24,
+        secret_key="test-secret-key-for-unit-tests!!",
+    )
 
 
 class _FakeRequest:
