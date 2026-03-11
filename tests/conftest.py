@@ -159,7 +159,10 @@ async def client(
     app.dependency_overrides[require_api_key] = _make_auth_a_api_key
     app.dependency_overrides[require_dashboard_auth] = _make_auth_a_admin
     app.dependency_overrides[require_admin] = _make_auth_a_admin
-    app.dependency_overrides[get_current_tenant] = _make_auth_a_api_key
+    # Use dashboard auth for get_current_tenant (union dependency) so
+    # mixed-auth routes don't enforce env-scoping by default.  Tests
+    # that need API-key env-scoping should override this explicitly.
+    app.dependency_overrides[get_current_tenant] = _make_auth_a_admin
 
     # Set app state for routes that access it directly
     app.state.redis = test_redis
@@ -223,7 +226,7 @@ def set_auth_tenant_b() -> Callable[[], None]:
         app.dependency_overrides[require_api_key] = _make_auth_b_api_key
         app.dependency_overrides[require_dashboard_auth] = _make_auth_b_admin
         app.dependency_overrides[require_admin] = _make_auth_b_admin
-        app.dependency_overrides[get_current_tenant] = _make_auth_b_api_key
+        app.dependency_overrides[get_current_tenant] = _make_auth_b_admin
 
     return _swap
 
@@ -242,6 +245,6 @@ def set_auth_tenant_a() -> Callable[[], None]:
         app.dependency_overrides[require_api_key] = _make_auth_a_api_key
         app.dependency_overrides[require_dashboard_auth] = _make_auth_a_admin
         app.dependency_overrides[require_admin] = _make_auth_a_admin
-        app.dependency_overrides[get_current_tenant] = _make_auth_a_api_key
+        app.dependency_overrides[get_current_tenant] = _make_auth_a_admin
 
     return _swap

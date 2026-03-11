@@ -8,7 +8,7 @@ import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
@@ -54,7 +54,17 @@ async def stream(
 
     Auto-registers the agent if not already known. Resolves bundle assignment
     if agent didn't provide an explicit bundle_name.
+
+    The ``env`` query parameter must match the API key's environment scope.
+    A staging key cannot subscribe to production events.
     """
+    # Enforce env scope: API key is always env-scoped, reject mismatches.
+    if auth.env and env != auth.env:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"API key is scoped to '{auth.env}', cannot subscribe to '{env}'.",
+        )
+
     from edictum_server.services import agent_registration_service, assignment_service
 
     agent_id = auth.agent_id or "unknown"
