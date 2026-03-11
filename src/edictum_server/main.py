@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import sqlalchemy as sa
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException as StarletteHTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -121,9 +122,7 @@ async def _worker_monitor(app: FastAPI) -> None:
             workers = app.state.background_workers
             if workers["approval_timeout"].done():
                 logger.warning("Restarting crashed approval_timeout worker")
-                workers["approval_timeout"] = asyncio.create_task(
-                    _approval_timeout_worker(app)
-                )
+                workers["approval_timeout"] = asyncio.create_task(_approval_timeout_worker(app))
             if workers["partition"].done():
                 logger.warning("Restarting crashed partition worker")
                 workers["partition"] = asyncio.create_task(_partition_worker())
@@ -280,6 +279,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             settings.base_url,
         )
 
+    # Warn when serving behind a proxy without trusted proxy config (H1/L1).
+    # Without ProxyHeadersMiddleware, Starlette uses http:// in redirects
+    # and rate-limiting keys on the proxy IP instead of the real client.
+    if settings.base_url.startswith("https://") and not settings.trusted_proxies:
+        logger.warning(
+            "EDICTUM_BASE_URL is HTTPS but EDICTUM_TRUSTED_PROXIES is not set. "
+            "Trailing-slash redirects will use http:// (downgrade) and rate "
+            "limiting will key on the proxy IP, not the real client. "
+            "Set EDICTUM_TRUSTED_PROXIES to your reverse proxy addresses "
+            "(e.g. '*' for Railway/Render, or specific CIDRs).",
+        )
+
     # Validate signing key secret early — log clearly if misconfigured
     try:
         settings.get_signing_secret()
@@ -392,8 +403,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "X-Requested-With", "Authorization", "X-Edictum-Agent-Id"],
 )
 
 # Security response headers (HSTS, CSP, X-Frame-Options, etc.)
@@ -445,6 +456,20 @@ app.include_router(notifications.router)
 app.include_router(settings.router)
 app.include_router(ai.router)
 app.include_router(ai_usage.router)
+
+
+# --- Validation error handler: strip Pydantic internals ----------------------
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
+    """Return 422 with sanitized error details.
+
+    Strips ``ctx`` and ``type`` fields from Pydantic errors to avoid
+    leaking framework internals (L4 finding).
+    """
+    sanitized = [
+        {"loc": e.get("loc", []), "msg": e.get("msg", "Validation error")} for e in exc.errors()
+    ]
+    return JSONResponse(status_code=422, content={"detail": sanitized})
 
 
 # --- 404 handler: redirect non-API paths to dashboard -------------------------

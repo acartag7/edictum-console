@@ -58,6 +58,26 @@ def _map_result(result: EvaluationResult, mode: str, yaml_hash: str) -> Evaluate
     )
 
 
+# Limits to prevent DoS via arbitrarily complex bundles.
+_MAX_CONTRACTS = 100
+_MAX_YAML_DOCUMENTS = 10
+
+
+def _check_yaml_complexity(yaml_content: str) -> None:
+    """Reject YAML that exceeds complexity limits before evaluation.
+
+    Raises ValueError if the content has too many YAML documents or
+    other structural issues that suggest a DoS attempt.
+    """
+    # Count YAML document separators (---).
+    # Each '---' at the start of a line starts a new document.
+    doc_count = yaml_content.count("\n---") + 1
+    if doc_count > _MAX_YAML_DOCUMENTS:
+        raise ValueError(
+            f"YAML contains {doc_count} documents (limit: {_MAX_YAML_DOCUMENTS})."
+        )
+
+
 def evaluate_contracts(
     *,
     yaml_content: str,
@@ -82,8 +102,11 @@ def evaluate_contracts(
         EvaluateResponse with verdict, matched contracts, timing.
 
     Raises:
-        ValueError: If the YAML is invalid or cannot be parsed as contracts.
+        ValueError: If the YAML is invalid, cannot be parsed, or exceeds
+            complexity limits (contract count, document count).
     """
+    _check_yaml_complexity(yaml_content)
+
     principal = _build_principal(principal_input)
     yaml_hash = hashlib.sha256(yaml_content.encode("utf-8")).hexdigest()
 
@@ -96,6 +119,13 @@ def evaluate_contracts(
         )
     except Exception as exc:
         raise ValueError(f"Invalid contract YAML: {exc}") from exc
+
+    # Check contract count after parsing.
+    contract_count = len(getattr(edictum_instance, "contracts", []))
+    if contract_count > _MAX_CONTRACTS:
+        raise ValueError(
+            f"Bundle contains {contract_count} contracts (limit: {_MAX_CONTRACTS})."
+        )
 
     result: EvaluationResult = edictum_instance.evaluate(
         tool_name,

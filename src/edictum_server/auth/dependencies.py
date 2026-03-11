@@ -44,14 +44,20 @@ def _extract_bearer(authorization: str) -> str:
 
 
 async def require_api_key(
-    authorization: str = Header(alias="Authorization"),
+    authorization: str | None = Header(default=None, alias="Authorization"),
     x_edictum_agent_id: str | None = Header(default=None, alias="X-Edictum-Agent-Id"),
     db: AsyncSession = Depends(get_db),
 ) -> AuthContext:
     """Authenticate an agent request via API key.
 
     Looks up the key by its 12-char prefix, then verifies with bcrypt.
+    Returns 401 (not 422) when the Authorization header is missing.
     """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header is required.",
+        )
     raw_key = _extract_bearer(authorization)
     # Key format: edk_{env}_{random} — extract env and first 8 random chars.
     # This must match how generate_api_key() computes the prefix.

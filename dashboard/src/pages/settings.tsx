@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { Settings2, Monitor, Bell, AlertTriangle, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getHealth, type HealthResponse } from "@/lib/api"
+import { getHealthDetails, type HealthDetailsResponse } from "@/lib/api"
 import { useDashboardSSE } from "@/hooks/use-dashboard-sse"
 import { SystemSection } from "./settings/system-section"
 import { NotificationsSection } from "./settings/notifications-section"
@@ -16,14 +16,14 @@ export default function SettingsPage() {
   const activeSection = searchParams.get("section") || "system"
   const setSection = (s: string) => setSearchParams({ section: s }, { replace: true })
 
-  const [health, setHealth] = useState<HealthResponse | null>(null)
+  const [health, setHealth] = useState<HealthDetailsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [lastChecked, setLastChecked] = useState<Date | null>(null)
   const [channelCount, setChannelCount] = useState(0)
 
   const fetchHealth = useCallback(async () => {
     try {
-      const data = await getHealth()
+      const data = await getHealthDetails()
       setHealth(data)
       setLastChecked(new Date())
     } catch {

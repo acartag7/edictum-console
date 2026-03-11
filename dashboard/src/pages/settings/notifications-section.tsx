@@ -12,7 +12,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { listChannels, deleteChannel, updateChannel, getHealth } from "@/lib/api"
+import { listChannels, deleteChannel, updateChannel, getHealthDetails } from "@/lib/api"
 import type { NotificationChannelInfo } from "@/lib/api"
 import { toast } from "sonner"
 import { ChannelTable } from "./notifications/channel-table"
@@ -49,7 +49,7 @@ export function NotificationsSection({ onChannelCountChange }: NotificationsSect
   useEffect(() => { void fetchChannels() }, [fetchChannels])
 
   useEffect(() => {
-    getHealth().then((h) => setBaseUrlHttps(h.base_url_https ?? null)).catch(() => {})
+    getHealthDetails().then((h) => setBaseUrlHttps(h.base_url_https ?? null)).catch(() => {})
   }, [])
 
   function openCreate() {

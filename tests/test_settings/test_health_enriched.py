@@ -1,4 +1,4 @@
-"""Tests for enriched health endpoint."""
+"""Tests for authenticated health details endpoint."""
 
 from __future__ import annotations
 
@@ -8,9 +8,9 @@ from httpx import AsyncClient
 pytestmark = pytest.mark.anyio
 
 
-async def test_health_returns_enriched_fields(client: AsyncClient) -> None:
-    """Health endpoint returns database, redis, and connected_agents."""
-    resp = await client.get("/api/v1/health")
+async def test_health_details_returns_enriched_fields(client: AsyncClient) -> None:
+    """Authenticated /health/details returns database, redis, and connected_agents."""
+    resp = await client.get("/api/v1/health/details")
     assert resp.status_code == 200
     data = resp.json()
 
@@ -26,3 +26,13 @@ async def test_health_returns_enriched_fields(client: AsyncClient) -> None:
     assert "connected_agents" in data
     assert isinstance(data["connected_agents"], int)
     assert data["connected_agents"] == 0
+
+
+async def test_public_health_hides_enriched_fields(client: AsyncClient) -> None:
+    """Public /health does not leak database/redis/agent details."""
+    resp = await client.get("/api/v1/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "database" not in data
+    assert "redis" not in data
+    assert "connected_agents" not in data
