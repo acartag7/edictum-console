@@ -487,6 +487,16 @@ async def not_found_handler(
 # --- SPA serving (dashboard) ---------------------------------------------------
 _STATIC_DIR = Path(os.environ.get("EDICTUM_STATIC_DIR", "/app/static/dashboard"))
 
+# Mount static assets BEFORE the SPA catch-all so /dashboard/assets/* serves
+# real files instead of falling through to index.html.
+_ASSETS_DIR = _STATIC_DIR / "assets"
+if _ASSETS_DIR.is_dir():
+    app.mount(
+        "/dashboard/assets",
+        StaticFiles(directory=str(_ASSETS_DIR)),
+        name="dashboard-assets",
+    )
+
 
 @app.get("/dashboard/{full_path:path}", response_model=None)
 async def serve_spa(request: Request, full_path: str) -> FileResponse | HTMLResponse:  # noqa: ARG001
@@ -498,13 +508,4 @@ async def serve_spa(request: Request, full_path: str) -> FileResponse | HTMLResp
         "<h1>Dashboard not built</h1>"
         "<p>Run <code>cd dashboard && pnpm build</code> or use the Vite dev server.</p>",
         status_code=404,
-    )
-
-
-_ASSETS_DIR = _STATIC_DIR / "assets"
-if _ASSETS_DIR.is_dir():
-    app.mount(
-        "/dashboard/assets",
-        StaticFiles(directory=str(_ASSETS_DIR)),
-        name="dashboard-assets",
     )
