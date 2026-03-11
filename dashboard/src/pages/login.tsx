@@ -158,11 +158,9 @@ export function LoginPage() {
           </CardFooter>
         </form>
 
-        {health && (
-          <p className="pb-4 text-center text-xs text-muted-foreground">
-            v{health.version}
-          </p>
-        )}
+        <p className="pb-4 text-center text-xs text-muted-foreground">
+          Edictum Console
+        </p>
       </Card>
     </div>
   )

@@ -37,11 +37,11 @@ async def evaluate(
     """
     try:
         await asyncio.wait_for(_EVALUATE_SEMAPHORE.acquire(), timeout=1.0)
-    except TimeoutError:
+    except TimeoutError as exc:
         raise HTTPException(
             status_code=429,
             detail="Too many concurrent evaluations. Try again shortly.",
-        )
+        ) from exc
     try:
         return await asyncio.wait_for(
             asyncio.to_thread(
@@ -54,11 +54,11 @@ async def evaluate(
             ),
             timeout=_EVALUATE_TIMEOUT_SECONDS,
         )
-    except TimeoutError:
+    except TimeoutError as exc:
         raise HTTPException(
             status_code=422,
             detail="Evaluation timed out — contract bundle may be too complex.",
-        )
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     finally:
