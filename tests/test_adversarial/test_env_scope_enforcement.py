@@ -85,6 +85,7 @@ def set_staging_api_key() -> Callable[[], None]:
 
     def _swap() -> None:
         from tests.conftest import _get_app
+
         app = _get_app()
         app.dependency_overrides[require_api_key] = _make_staging_api_key
         app.dependency_overrides[get_current_tenant] = _make_staging_api_key
@@ -102,6 +103,7 @@ def set_production_api_key() -> Callable[[], None]:
 
     def _swap() -> None:
         from tests.conftest import _get_app
+
         app = _get_app()
         app.dependency_overrides[require_api_key] = _make_production_api_key
         app.dependency_overrides[get_current_tenant] = _make_production_api_key
@@ -120,6 +122,7 @@ def set_dashboard_auth() -> Callable[[], None]:
 
     def _swap() -> None:
         from tests.conftest import _get_app
+
         app = _get_app()
         app.dependency_overrides[require_dashboard_auth] = _make_dashboard_auth
         app.dependency_overrides[require_admin] = _make_dashboard_auth
@@ -138,9 +141,7 @@ async def tenant_a(db_session: AsyncSession) -> Tenant:
 
 
 @pytest.fixture()
-async def production_bundle(
-    db_session: AsyncSession, tenant_a: Tenant
-) -> tuple[str, int]:
+async def production_bundle(db_session: AsyncSession, tenant_a: Tenant) -> tuple[str, int]:
     """Upload a bundle and deploy it to production only.
 
     Returns (bundle_name, version).
@@ -168,9 +169,7 @@ async def production_bundle(
 
 
 @pytest.fixture()
-async def production_approval(
-    db_session: AsyncSession, tenant_a: Tenant
-) -> uuid.UUID:
+async def production_approval(db_session: AsyncSession, tenant_a: Tenant) -> uuid.UUID:
     """Create a pending approval in the production environment.
 
     Returns approval_id.
@@ -336,12 +335,14 @@ async def test_bundle_version_staging_key_denied(
     set_staging_api_key: Callable[[], None],
     production_bundle: tuple[str, int],
 ) -> None:
-    """Staging API key cannot read a bundle version deployed only to production."""
+    """Staging API key cannot read a bundle version deployed only to production.
+
+    Returns 404 (not 403) to avoid leaking version existence across envs.
+    """
     set_staging_api_key()
     name, version = production_bundle
     resp = await client.get(f"/api/v1/bundles/{name}/{version}")
-    assert resp.status_code == 403
-    assert "staging" in resp.json()["detail"].lower()
+    assert resp.status_code == 404
 
 
 async def test_bundle_version_production_key_allowed(
@@ -366,12 +367,14 @@ async def test_bundle_yaml_staging_key_denied(
     set_staging_api_key: Callable[[], None],
     production_bundle: tuple[str, int],
 ) -> None:
-    """Staging API key cannot read raw YAML of a bundle deployed only to production."""
+    """Staging API key cannot read raw YAML of a bundle deployed only to production.
+
+    Returns 404 (not 403) to avoid leaking version existence across envs.
+    """
     set_staging_api_key()
     name, version = production_bundle
     resp = await client.get(f"/api/v1/bundles/{name}/{version}/yaml")
-    assert resp.status_code == 403
-    assert "staging" in resp.json()["detail"].lower()
+    assert resp.status_code == 404
 
 
 async def test_bundle_yaml_production_key_allowed(
@@ -535,12 +538,8 @@ async def test_approval_get_dashboard_sees_all(
 async def test_push_manager_env_isolation(push_manager: PushManager) -> None:
     """PushManager must not deliver events across environments."""
     tenant = TENANT_A_ID
-    prod_conn = push_manager.subscribe(
-        "production", tenant_id=tenant, agent_id="prod"
-    )
-    stg_conn = push_manager.subscribe(
-        "staging", tenant_id=tenant, agent_id="stg"
-    )
+    prod_conn = push_manager.subscribe("production", tenant_id=tenant, agent_id="prod")
+    stg_conn = push_manager.subscribe("staging", tenant_id=tenant, agent_id="stg")
 
     push_manager.push_to_env(
         "production",

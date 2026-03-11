@@ -77,13 +77,16 @@ async def upload(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    push.push_to_dashboard(auth.tenant_id, {
-        "type": "bundle_uploaded",
-        "bundle_name": bundle.name,
-        "version": bundle.version,
-        "revision_hash": bundle.revision_hash,
-        "uploaded_by": auth.email or auth.user_id or "unknown",
-    })
+    push.push_to_dashboard(
+        auth.tenant_id,
+        {
+            "type": "bundle_uploaded",
+            "bundle_name": bundle.name,
+            "version": bundle.version,
+            "revision_hash": bundle.revision_hash,
+            "uploaded_by": auth.email or auth.user_id or "unknown",
+        },
+    )
 
     return _bundle_to_response(bundle)
 
@@ -113,15 +116,17 @@ async def list_bundles(
             # Narrow deployed_envs to only the key's env
             deployed_envs = [auth.env]
         enrich = enrichment.get(bname, {})
-        result.append(BundleSummaryResponse(
-            name=bname,
-            latest_version=entry["latest_version"],  # type: ignore[arg-type]
-            version_count=entry["version_count"],  # type: ignore[arg-type]
-            last_updated=entry["last_updated"],  # type: ignore[arg-type]
-            deployed_envs=deployed_envs,
-            contract_count=enrich.get("contract_count"),  # type: ignore[arg-type]
-            last_deployed_at=enrich.get("last_deployed_at"),  # type: ignore[arg-type]
-        ))
+        result.append(
+            BundleSummaryResponse(
+                name=bname,
+                latest_version=entry["latest_version"],  # type: ignore[arg-type]
+                version_count=entry["version_count"],  # type: ignore[arg-type]
+                last_updated=entry["last_updated"],  # type: ignore[arg-type]
+                deployed_envs=deployed_envs,
+                contract_count=enrich.get("contract_count"),  # type: ignore[arg-type]
+                last_deployed_at=enrich.get("last_deployed_at"),  # type: ignore[arg-type]
+            )
+        )
     return result
 
 
@@ -194,17 +199,16 @@ async def get_version(
     """
     bundle = await get_bundle_by_version(db, auth.tenant_id, version, bundle_name=name)
     if bundle is None:
-        raise HTTPException(
-            status_code=404, detail=f"Bundle '{name}' v{version} not found"
-        )
-    # API key auth: verify this version is deployed to the key's env
+        raise HTTPException(status_code=404, detail=f"Bundle '{name}' v{version} not found")
+    # API key auth: verify this version is deployed to the key's env.
+    # Return 404 (not 403) to avoid leaking version existence across envs.
     if auth.auth_type == "api_key" and auth.env:
         envs_map = await get_deployed_envs_map(db, auth.tenant_id, bundle_name=name)
         deployed_envs = envs_map.get(version, [])
         if auth.env not in deployed_envs:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Bundle '{name}' v{version} is not deployed to '{auth.env}'.",
+                status_code=404,
+                detail=f"Bundle '{name}' v{version} not found",
             )
     return _bundle_to_response(bundle)
 
@@ -222,17 +226,16 @@ async def get_yaml(
     """
     bundle = await get_bundle_by_version(db, auth.tenant_id, version, bundle_name=name)
     if bundle is None:
-        raise HTTPException(
-            status_code=404, detail=f"Bundle '{name}' v{version} not found"
-        )
-    # API key auth: verify this version is deployed to the key's env
+        raise HTTPException(status_code=404, detail=f"Bundle '{name}' v{version} not found")
+    # API key auth: verify this version is deployed to the key's env.
+    # Return 404 (not 403) to avoid leaking version existence across envs.
     if auth.auth_type == "api_key" and auth.env:
         envs_map = await get_deployed_envs_map(db, auth.tenant_id, bundle_name=name)
         deployed_envs = envs_map.get(version, [])
         if auth.env not in deployed_envs:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Bundle '{name}' v{version} is not deployed to '{auth.env}'.",
+                status_code=404,
+                detail=f"Bundle '{name}' v{version} not found",
             )
     return Response(
         content=bundle.yaml_bytes,
