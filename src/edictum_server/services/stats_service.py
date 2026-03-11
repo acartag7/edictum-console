@@ -16,47 +16,66 @@ from edictum_server.schemas.stats import (
 )
 
 
-async def get_overview(db: AsyncSession, tenant_id: uuid.UUID) -> StatsOverviewResponse:
+async def get_overview(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    *,
+    env: str | None = None,
+) -> StatsOverviewResponse:
     """Compute dashboard overview stats for a tenant.
 
     All queries are scoped to ``tenant_id``.
+    When ``env`` is provided (API key auth), stats are further scoped
+    to that environment only.
     """
     now = datetime.now(UTC)
     one_hour_ago = now - timedelta(hours=1)
     twenty_four_hours_ago = now - timedelta(hours=24)
 
     # Pending approvals count
-    pending_result = await db.execute(
+    pending_stmt = (
         select(func.count())
         .select_from(Approval)
         .where(Approval.tenant_id == tenant_id, Approval.status == "pending")
     )
+    if env is not None:
+        pending_stmt = pending_stmt.where(Approval.env == env)
+    pending_result = await db.execute(pending_stmt)
     pending_approvals = pending_result.scalar() or 0
 
     # Active agents (distinct agent_ids in last 1 hour)
-    active_result = await db.execute(
+    active_stmt = (
         select(func.count(func.distinct(Event.agent_id)))
         .where(Event.tenant_id == tenant_id, Event.timestamp >= one_hour_ago)
     )
+    if env is not None:
+        active_stmt = active_stmt.where(Event.env == env)
+    active_result = await db.execute(active_stmt)
     active_agents = active_result.scalar() or 0
 
     # Total agents (distinct agent_ids all-time)
-    total_result = await db.execute(
+    total_stmt = (
         select(func.count(func.distinct(Event.agent_id)))
         .where(Event.tenant_id == tenant_id)
     )
+    if env is not None:
+        total_stmt = total_stmt.where(Event.env == env)
+    total_result = await db.execute(total_stmt)
     total_agents = total_result.scalar() or 0
 
     # Events in last 24 hours
-    events_24h_result = await db.execute(
+    events_24h_stmt = (
         select(func.count())
         .select_from(Event)
         .where(Event.tenant_id == tenant_id, Event.timestamp >= twenty_four_hours_ago)
     )
+    if env is not None:
+        events_24h_stmt = events_24h_stmt.where(Event.env == env)
+    events_24h_result = await db.execute(events_24h_stmt)
     events_24h = events_24h_result.scalar() or 0
 
     # Denials in last 24 hours
-    denials_24h_result = await db.execute(
+    denials_24h_stmt = (
         select(func.count())
         .select_from(Event)
         .where(
@@ -65,10 +84,13 @@ async def get_overview(db: AsyncSession, tenant_id: uuid.UUID) -> StatsOverviewR
             Event.verdict == "call_denied",
         )
     )
+    if env is not None:
+        denials_24h_stmt = denials_24h_stmt.where(Event.env == env)
+    denials_24h_result = await db.execute(denials_24h_stmt)
     denials_24h = denials_24h_result.scalar() or 0
 
     # Observe findings in last 24 hours (mode=observe, verdict=call_would_deny)
-    observe_result = await db.execute(
+    observe_stmt = (
         select(func.count())
         .select_from(Event)
         .where(
@@ -78,10 +100,13 @@ async def get_overview(db: AsyncSession, tenant_id: uuid.UUID) -> StatsOverviewR
             Event.verdict == "call_would_deny",
         )
     )
+    if env is not None:
+        observe_stmt = observe_stmt.where(Event.env == env)
+    observe_result = await db.execute(observe_stmt)
     observe_findings_24h = observe_result.scalar() or 0
 
     # Distinct contracts triggered in last 24 hours
-    contracts_result = await db.execute(
+    contracts_stmt = (
         select(func.count(func.distinct(
             Event.payload["decision_name"].as_string()
         )))
@@ -91,6 +116,9 @@ async def get_overview(db: AsyncSession, tenant_id: uuid.UUID) -> StatsOverviewR
             Event.payload["decision_name"].isnot(None),
         )
     )
+    if env is not None:
+        contracts_stmt = contracts_stmt.where(Event.env == env)
+    contracts_result = await db.execute(contracts_stmt)
     contracts_triggered_24h = contracts_result.scalar() or 0
 
     return StatsOverviewResponse(

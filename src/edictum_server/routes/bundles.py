@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import base64
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.auth.dependencies import (
@@ -77,13 +77,16 @@ async def upload(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    push.push_to_dashboard(auth.tenant_id, {
-        "type": "bundle_uploaded",
-        "bundle_name": bundle.name,
-        "version": bundle.version,
-        "revision_hash": bundle.revision_hash,
-        "uploaded_by": auth.email or auth.user_id or "unknown",
-    })
+    push.push_to_dashboard(
+        auth.tenant_id,
+        {
+            "type": "bundle_uploaded",
+            "bundle_name": bundle.name,
+            "version": bundle.version,
+            "revision_hash": bundle.revision_hash,
+            "uploaded_by": auth.email or auth.user_id or "unknown",
+        },
+    )
 
     return _bundle_to_response(bundle)
 
@@ -96,23 +99,32 @@ async def list_bundles(
     """List distinct bundle names with summaries.
 
     Accessible by both dashboard users and API key agents (for gate init).
+    When accessed via API key, only bundles deployed to the key's environment
+    are returned.
     """
-    names = await list_bundle_names(db, auth.tenant_id)
+    env_filter = auth.env if (auth.auth_type == "api_key" and auth.env) else None
+    names = await list_bundle_names(db, auth.tenant_id, env=env_filter)
     envs_by_name = await get_deployed_envs_by_bundle_name(db, auth.tenant_id)
-    enrichment = await get_bundle_enrichment(db, auth.tenant_id)
+    enrichment = await get_bundle_enrichment(db, auth.tenant_id, env=env_filter)
     result: list[BundleSummaryResponse] = []
     for entry in names:
         bname = str(entry["name"])
+        deployed_envs = envs_by_name.get(bname, [])
+        # API key auth: narrow visible envs to the key's env
+        if env_filter:
+            deployed_envs = [env_filter] if env_filter in deployed_envs else []
         enrich = enrichment.get(bname, {})
-        result.append(BundleSummaryResponse(
-            name=bname,
-            latest_version=entry["latest_version"],  # type: ignore[arg-type]
-            version_count=entry["version_count"],  # type: ignore[arg-type]
-            last_updated=entry["last_updated"],  # type: ignore[arg-type]
-            deployed_envs=envs_by_name.get(bname, []),
-            contract_count=enrich.get("contract_count"),  # type: ignore[arg-type]
-            last_deployed_at=enrich.get("last_deployed_at"),  # type: ignore[arg-type]
-        ))
+        result.append(
+            BundleSummaryResponse(
+                name=bname,
+                latest_version=entry["latest_version"],  # type: ignore[arg-type]
+                version_count=entry["version_count"],  # type: ignore[arg-type]
+                last_updated=entry["last_updated"],  # type: ignore[arg-type]
+                deployed_envs=deployed_envs,
+                contract_count=enrich.get("contract_count"),  # type: ignore[arg-type]
+                last_deployed_at=enrich.get("last_deployed_at"),  # type: ignore[arg-type]
+            )
+        )
     return result
 
 
@@ -130,7 +142,15 @@ async def current(
     Returns bundle metadata plus the YAML content (base64-encoded) so
     agents can parse and enforce contracts. Accessible by both API-key
     agents and dashboard-authenticated users.
+
+    API key auth: the ``env`` query param must match the key's scope.
     """
+    # Enforce env scope for API key auth
+    if auth.auth_type == "api_key" and auth.env and env != auth.env:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"API key is scoped to '{auth.env}', cannot access env '{env}'.",
+        )
     bundle = await get_current_bundle(db, auth.tenant_id, env, bundle_name=name)
     if bundle is None:
         raise HTTPException(
@@ -171,12 +191,23 @@ async def get_version(
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> BundleResponse:
-    """Get a specific bundle version."""
+    """Get a specific bundle version.
+
+    API key auth: only returns bundles that are deployed to the key's env.
+    """
     bundle = await get_bundle_by_version(db, auth.tenant_id, version, bundle_name=name)
     if bundle is None:
-        raise HTTPException(
-            status_code=404, detail=f"Bundle '{name}' v{version} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Bundle '{name}' v{version} not found")
+    # API key auth: verify this version is deployed to the key's env.
+    # Return 404 (not 403) to avoid leaking version existence across envs.
+    if auth.auth_type == "api_key" and auth.env:
+        envs_map = await get_deployed_envs_map(db, auth.tenant_id, bundle_name=name)
+        deployed_envs = envs_map.get(version, [])
+        if auth.env not in deployed_envs:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Bundle '{name}' v{version} not found",
+            )
     return _bundle_to_response(bundle)
 
 
@@ -187,12 +218,23 @@ async def get_yaml(
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> Response:
-    """Get the raw YAML content of a bundle version."""
+    """Get the raw YAML content of a bundle version.
+
+    API key auth: only returns bundles that are deployed to the key's env.
+    """
     bundle = await get_bundle_by_version(db, auth.tenant_id, version, bundle_name=name)
     if bundle is None:
-        raise HTTPException(
-            status_code=404, detail=f"Bundle '{name}' v{version} not found"
-        )
+        raise HTTPException(status_code=404, detail=f"Bundle '{name}' v{version} not found")
+    # API key auth: verify this version is deployed to the key's env.
+    # Return 404 (not 403) to avoid leaking version existence across envs.
+    if auth.auth_type == "api_key" and auth.env:
+        envs_map = await get_deployed_envs_map(db, auth.tenant_id, bundle_name=name)
+        deployed_envs = envs_map.get(version, [])
+        if auth.env not in deployed_envs:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Bundle '{name}' v{version} not found",
+            )
     return Response(
         content=bundle.yaml_bytes,
         media_type="application/x-yaml",

@@ -135,9 +135,15 @@ async def get_approval(
     auth: AuthContext = Depends(get_current_tenant),
     db: AsyncSession = Depends(get_db),
 ) -> ApprovalResponse:
-    """Get a single approval by ID."""
+    """Get a single approval by ID.
+
+    API key auth: only returns approvals from the key's environment.
+    """
     approval = await approval_service.get_approval(db, auth.tenant_id, approval_id)
     if approval is None:
+        raise HTTPException(status_code=404, detail="Approval not found.")
+    # API key auth: enforce env scope
+    if auth.auth_type == "api_key" and auth.env and approval.env != auth.env:
         raise HTTPException(status_code=404, detail="Approval not found.")
     return _to_response(approval)
 
