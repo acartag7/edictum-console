@@ -79,7 +79,7 @@ async def stream(
             agent_id,
             agent_tags=parsed_tags,
             agent_provided_bundle=None,
-            env=env,
+            env=auth.env or env,
         )
         effective_bundle = resolved
 
