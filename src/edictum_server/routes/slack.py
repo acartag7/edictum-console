@@ -146,6 +146,15 @@ async def slack_interaction(
         )
 
     tenant_id = uuid.UUID(tenant_id_raw)
+
+    # S3 cross-check: Redis-resolved tenant_id must match the channel's own
+    # tenant_id.  Prevents a scenario where a Redis key is manipulated or
+    # belongs to a different tenant than the channel that verified the
+    # signature.  Return 403 — same as an unknown channel — to avoid
+    # revealing whether the approval exists in another tenant.
+    if tenant_id != matched_channel.tenant_id:
+        return Response(status_code=403)
+
     username = payload.get("user", {}).get("username", "unknown")
     decided_by = f"slack:{username}"
 

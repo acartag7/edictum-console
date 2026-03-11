@@ -142,6 +142,22 @@ async def _handle_component(
         )
 
     tenant_id = uuid.UUID(tenant_id_str)
+
+    # S3 cross-check: Redis-resolved tenant_id must match the channel's own
+    # tenant_id.  The Redis key is set when the approval notification is sent;
+    # if there is any mismatch (tampered key, wrong channel), reject silently
+    # with the same "Approval Expired" response to avoid leaking existence.
+    if tenant_id != db_channel.tenant_id:
+        return JSONResponse(
+            {
+                "type": 7,
+                "data": {
+                    "embeds": [{"title": "Approval Expired", "color": 0x99AAB5}],
+                    "components": [],
+                },
+            }
+        )
+
     member = body_json.get("member") or {}
     user = member.get("user") or body_json.get("user") or {}
     username: str = user.get("username", "unknown")

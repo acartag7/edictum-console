@@ -42,6 +42,7 @@ async def _process_callback(
     callback_query: dict[str, Any],
     tg_channel: TelegramChannel,
     channel_id: str,
+    channel_tenant_id: uuid.UUID,
 ) -> Response:
     """Shared logic for processing a Telegram callback query."""
     data: str = callback_query.get("data", "")
@@ -72,6 +73,22 @@ async def _process_callback(
         return Response(status_code=200)
 
     tenant_id = uuid.UUID(tenant_id_str)
+
+    # S3 cross-check: Redis-resolved tenant_id must match the channel's own
+    # tenant_id.  Without this, a tampered or replayed Redis key for a
+    # different tenant would allow submitting decisions against that tenant's
+    # approvals.  Return 200 (Telegram expects 200) but answer the callback
+    # with the same "expired" message to avoid leaking existence.
+    if tenant_id != channel_tenant_id:
+        try:
+            await tg_channel.client.answer_callback_query(
+                callback_query["id"],
+                "Approval expired or not found.",
+            )
+        except Exception:
+            logger.exception("Failed to answer callback query")
+        return Response(status_code=200)
+
     tg_user = callback_query.get("from", {})
     decided_by = f"telegram:{tg_user.get('username') or tg_user.get('id', 'unknown')}"
 
@@ -192,4 +209,6 @@ async def db_channel_webhook(
     if tg_channel is None:
         return Response(status_code=200)
 
-    return await _process_callback(request, db, callback_query, tg_channel, normalized_id)
+    return await _process_callback(
+        request, db, callback_query, tg_channel, normalized_id, db_channel.tenant_id
+    )
