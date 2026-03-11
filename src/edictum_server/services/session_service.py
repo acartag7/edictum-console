@@ -8,6 +8,7 @@ import uuid
 import redis.asyncio as aioredis
 
 _VALID_KEY_PATTERN = re.compile(r"^[a-zA-Z0-9_\-\.:/]+$")
+_SESSION_STATE_TTL = 7 * 24 * 3600  # 7 days — all Redis keys must have TTL
 
 
 def _validate_key(key: str) -> None:
@@ -44,7 +45,7 @@ async def set_session_value(
     value: str,
 ) -> None:
     """Set a session key to the given string value."""
-    await r.set(_key(tenant_id, key), value)
+    await r.set(_key(tenant_id, key), value, ex=_SESSION_STATE_TTL)
 
 
 async def increment_session_value(
@@ -53,8 +54,17 @@ async def increment_session_value(
     key: str,
     amount: float = 1,
 ) -> float:
-    """Atomically increment a numeric session key. Returns the new value."""
-    return float(await r.incrbyfloat(_key(tenant_id, key), amount))
+    """Atomically increment a numeric session key. Returns the new value.
+
+    Uses a MULTI/EXEC transaction so incrbyfloat + expire execute
+    atomically — no TTL gap if the process crashes between calls.
+    """
+    redis_key = _key(tenant_id, key)
+    async with r.pipeline(transaction=True) as pipe:
+        pipe.incrbyfloat(redis_key, amount)
+        pipe.expire(redis_key, _SESSION_STATE_TTL)
+        results = await pipe.execute()
+    return float(results[0])
 
 
 async def delete_session_value(

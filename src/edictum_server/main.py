@@ -303,6 +303,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         redis=app.state.redis,
         session_ttl_hours=settings.session_ttl_hours,
         secure_cookies=settings.base_url.startswith("https://"),
+        secret_key=settings.secret_key,
     )
 
     # Push manager (SSE)

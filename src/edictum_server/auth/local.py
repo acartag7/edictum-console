@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import secrets
+import time
 import uuid
 
 import bcrypt
@@ -15,10 +17,11 @@ from edictum_server.auth.provider import AuthProvider, DashboardAuthContext
 
 _COOKIE_NAME = "edictum_session"
 _SESSION_PREFIX = "session:"
+_MAX_ABSOLUTE_LIFETIME = 7 * 24 * 3600  # 7 days — no session lives beyond this
 
 
 class LocalAuthProvider(AuthProvider):
-    """Bcrypt password auth with Redis-backed sessions."""
+    """Bcrypt password auth with HMAC-signed Redis-backed sessions."""
 
     def __init__(
         self,
@@ -26,10 +29,36 @@ class LocalAuthProvider(AuthProvider):
         session_ttl_hours: int = 24,
         *,
         secure_cookies: bool = False,
+        secret_key: str,
     ) -> None:
+        if not secret_key:
+            raise ValueError("secret_key must not be empty")
         self._redis = redis
         self._session_ttl = session_ttl_hours * 3600
         self._secure_cookies = secure_cookies
+        self._secret_key = secret_key
+
+    def _sign(self, data: str) -> str:
+        """HMAC-SHA256 sign session data, return 'hmac_hex:json' string."""
+        mac = hmac.new(
+            self._secret_key.encode(), data.encode(), hashlib.sha256
+        ).hexdigest()
+        return f"{mac}:{data}"
+
+    def _verify_and_parse(self, raw: str) -> dict[str, object] | None:
+        """Verify HMAC signature and return parsed session data, or None."""
+        if ":" not in raw:
+            return None
+        stored_mac, _, payload = raw.partition(":")
+        expected_mac = hmac.new(
+            self._secret_key.encode(), payload.encode(), hashlib.sha256
+        ).hexdigest()
+        if not hmac.compare_digest(stored_mac, expected_mac):
+            return None
+        try:
+            return json.loads(payload)  # type: ignore[no-any-return]
+        except (json.JSONDecodeError, ValueError):
+            return None
 
     async def authenticate(self, request: Request) -> DashboardAuthContext:
         token = request.cookies.get(_COOKIE_NAME)
@@ -44,14 +73,38 @@ class LocalAuthProvider(AuthProvider):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Session expired or invalid.",
             )
-        data = json.loads(raw)
+
+        # Verify HMAC signature — reject tampered sessions
+        raw_str = raw if isinstance(raw, str) else raw.decode()
+        data = self._verify_and_parse(raw_str)
+        if data is None:
+            # Tampered or legacy unsigned session — destroy it
+            await self._redis.delete(f"{_SESSION_PREFIX}{token}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired or invalid.",
+            )
+
+        # Enforce absolute session lifetime (7 days max)
+        created_at = data.get("created_at")
+        expired = (
+            isinstance(created_at, (int, float))
+            and time.time() - created_at > _MAX_ABSOLUTE_LIFETIME
+        )
+        if expired:
+            await self._redis.delete(f"{_SESSION_PREFIX}{token}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired. Please log in again.",
+            )
+
         # Slide the expiration on each successful auth
         await self._redis.expire(f"{_SESSION_PREFIX}{token}", self._session_ttl)
         return DashboardAuthContext(
-            user_id=uuid.UUID(data["user_id"]),
-            tenant_id=uuid.UUID(data["tenant_id"]),
-            email=data["email"],
-            is_admin=data["is_admin"],
+            user_id=uuid.UUID(str(data["user_id"])),
+            tenant_id=uuid.UUID(str(data["tenant_id"])),
+            email=str(data["email"]),
+            is_admin=bool(data["is_admin"]),
         )
 
     async def create_session(
@@ -68,11 +121,14 @@ class LocalAuthProvider(AuthProvider):
                 "tenant_id": str(tenant_id),
                 "email": email,
                 "is_admin": is_admin,
+                "created_at": time.time(),
             }
         )
+        # HMAC-sign session data to prevent forgery via Redis access
+        signed = self._sign(session_data)
         await self._redis.set(
             f"{_SESSION_PREFIX}{token}",
-            session_data,
+            signed,
             ex=self._session_ttl,
         )
         cookie_params: dict[str, str | bool | int] = {

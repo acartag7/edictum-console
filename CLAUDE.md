@@ -308,12 +308,13 @@ All prefixed with `EDICTUM_` where possible.
 | Variable | Required | Default | Purpose |
 |----------|----------|---------|---------|
 | `DATABASE_URL` | Yes | — | Postgres connection string |
-| `REDIS_URL` | Yes | — | Redis connection string |
+| `REDIS_URL` | Yes | — | Redis connection string (include password: `redis://:pass@host:6379/0`) |
+| `REDIS_PASSWORD` | Yes | — | Redis `requirepass` (used by docker-compose; embedded in `REDIS_URL`) |
 | `EDICTUM_ADMIN_EMAIL` | First run | — | Bootstrap admin user |
 | `EDICTUM_ADMIN_PASSWORD` | First run | — | Bootstrap admin password |
 | `EDICTUM_AUTH_PROVIDER` | No | `local` | Auth provider (`local`, future: `clerk`, `oidc`) |
 | `EDICTUM_BASE_URL` | No | `http://localhost:8000` | Public URL for webhooks, CORS |
-| `EDICTUM_SECRET_KEY` | Yes | — | Session token signing. No default. |
+| `EDICTUM_SECRET_KEY` | Yes | — | Session HMAC signing. Min 32 chars. No default. |
 
 ## License
 

@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _CONTRACT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
@@ -15,10 +15,10 @@ _CONTRACT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 class ContractCreateRequest(BaseModel):
     """Create a new contract in the library."""
 
-    contract_id: str
-    name: str
-    description: str | None = None
-    type: str  # "pre" | "post" | "session" | "sandbox"
+    contract_id: str = Field(..., max_length=128)
+    name: str = Field(..., max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
+    type: str = Field(..., max_length=64)  # "pre" | "post" | "session" | "sandbox"
     definition: dict[str, Any]
     tags: list[str] = []
 
@@ -44,8 +44,8 @@ class ContractCreateRequest(BaseModel):
 class ContractUpdateRequest(BaseModel):
     """Update a contract (creates a new version)."""
 
-    name: str | None = None
-    description: str | None = None
+    name: str | None = Field(default=None, max_length=255)
+    description: str | None = Field(default=None, max_length=2000)
     definition: dict[str, Any] | None = None
     tags: list[str] | None = None
 
@@ -96,7 +96,7 @@ class ContractUsageItem(BaseModel):
 class ImportRequest(BaseModel):
     """Import contracts from a YAML bundle."""
 
-    yaml_content: str
+    yaml_content: str = Field(..., max_length=1_048_576)
 
 
 class ImportResult(BaseModel):

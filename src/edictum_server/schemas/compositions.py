@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 _BUNDLE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 _BUNDLE_NAME_MAX_LEN = 128
@@ -16,7 +16,7 @@ _BUNDLE_NAME_MAX_LEN = 128
 class CompositionItemInput(BaseModel):
     """A contract reference within a composition."""
 
-    contract_id: str  # stable contract_id (not UUID)
+    contract_id: str = Field(..., max_length=128)  # stable contract_id (not UUID)
     position: int
     mode_override: Literal["enforce", "observe"] | None = None
     enabled: bool = True
@@ -25,11 +25,11 @@ class CompositionItemInput(BaseModel):
 class CompositionCreateRequest(BaseModel):
     """Create a new bundle composition."""
 
-    name: str
-    description: str | None = None
+    name: str = Field(..., max_length=128)
+    description: str | None = Field(default=None, max_length=2000)
     defaults_mode: Literal["enforce", "observe"] = "enforce"
     update_strategy: Literal["manual", "auto_deploy", "observe_first"] = "manual"
-    contracts: list[CompositionItemInput] = []
+    contracts: list[CompositionItemInput] = Field(default=[], max_length=100)
     tools_config: dict[str, Any] | None = None
     observability: dict[str, Any] | None = None
 
@@ -51,10 +51,10 @@ class CompositionCreateRequest(BaseModel):
 class CompositionUpdateRequest(BaseModel):
     """Update a bundle composition (all fields optional)."""
 
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=2000)
     defaults_mode: Literal["enforce", "observe"] | None = None
     update_strategy: Literal["manual", "auto_deploy", "observe_first"] | None = None
-    contracts: list[CompositionItemInput] | None = None
+    contracts: list[CompositionItemInput] | None = Field(default=None, max_length=100)
     tools_config: dict[str, Any] | None = None
     observability: dict[str, Any] | None = None
 

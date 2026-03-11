@@ -35,7 +35,7 @@ async def _create_approval(client: AsyncClient, **overrides: object) -> dict:
 async def test_create_approval(client: AsyncClient) -> None:
     data = await _create_approval(client)
     assert data["status"] == "pending"
-    assert data["agent_id"] == "agent-1"
+    assert data["agent_id"] == "test-agent"  # from auth context, not body
     assert data["tool_name"] == "shell"
     assert data["message"] == "Agent wants to run a dangerous command"
     assert data["timeout_effect"] == "deny"
@@ -53,7 +53,7 @@ async def test_get_approval(client: AsyncClient) -> None:
     data = resp.json()
     assert data["id"] == created["id"]
     assert data["status"] == "pending"
-    assert data["agent_id"] == "agent-1"
+    assert data["agent_id"] == "test-agent"  # from auth context, not body
 
 
 async def test_get_approval_not_found(client: AsyncClient) -> None:
@@ -71,7 +71,7 @@ async def test_list_pending_approvals(client: AsyncClient) -> None:
     first_id = all_data[0]["id"]
     await client.put(
         f"/api/v1/approvals/{first_id}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
 
     resp = await client.get("/api/v1/approvals", params={"status": "pending"})
@@ -85,12 +85,12 @@ async def test_submit_decision_approve(client: AsyncClient) -> None:
     created = await _create_approval(client)
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "admin", "reason": "looks safe"},
+        json={"approved": True, "reason": "looks safe"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "approved"
-    assert data["decided_by"] == "admin"
+    assert data["decided_by"] == "admin@test.com"  # from auth context, not body
     assert data["decision_reason"] == "looks safe"
     assert data["decided_at"] is not None
 
@@ -99,12 +99,12 @@ async def test_submit_decision_deny(client: AsyncClient) -> None:
     created = await _create_approval(client)
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": False, "decided_by": "admin", "reason": "too risky"},
+        json={"approved": False, "reason": "too risky"},
     )
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "denied"
-    assert data["decided_by"] == "admin"
+    assert data["decided_by"] == "admin@test.com"  # from auth context, not body
     assert data["decision_reason"] == "too risky"
 
 

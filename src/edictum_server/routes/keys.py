@@ -121,7 +121,9 @@ async def revoke_key(
         )
 
     await db.execute(
-        update(ApiKey).where(ApiKey.id == key_id).values(revoked_at=datetime.now(UTC))
+        update(ApiKey)
+        .where(ApiKey.id == key_id, ApiKey.tenant_id == auth.tenant_id)
+        .values(revoked_at=datetime.now(UTC))
     )
     await db.commit()
 

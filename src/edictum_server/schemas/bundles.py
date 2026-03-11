@@ -6,13 +6,13 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BundleUploadRequest(BaseModel):
     """Upload a new contract bundle (raw YAML string)."""
 
-    yaml_content: str
+    yaml_content: str = Field(..., max_length=1_048_576)
 
 
 class BundleResponse(BaseModel):

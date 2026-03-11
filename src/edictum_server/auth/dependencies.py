@@ -30,6 +30,7 @@ class AuthContext:
     agent_id: str | None = None
     email: str | None = None
     is_admin: bool = False
+    api_key_prefix: str | None = None
 
 
 def _extract_bearer(authorization: str) -> str:
@@ -79,6 +80,7 @@ async def require_api_key(
         auth_type="api_key",
         env=api_key.env,
         agent_id=x_edictum_agent_id,
+        api_key_prefix=api_key.key_prefix,
     )
 
 

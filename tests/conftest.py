@@ -11,7 +11,7 @@ os.environ.setdefault(
     "0" * 64,
 )
 # Set required config so Settings.validate_required() doesn't raise SystemExit
-os.environ.setdefault("EDICTUM_SECRET_KEY", "test-secret-key-for-unit-tests")
+os.environ.setdefault("EDICTUM_SECRET_KEY", "test-secret-key-for-unit-tests!!")
 os.environ.setdefault("EDICTUM_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ.setdefault("EDICTUM_REDIS_URL", "redis://localhost:6379/0")
 from collections.abc import AsyncGenerator, Callable
@@ -21,6 +21,8 @@ import fakeredis.aioredis
 import pytest
 import redis.asyncio as aioredis
 from httpx import ASGITransport, AsyncClient
+
+_TEST_SECRET_KEY = "test-secret-key-for-unit-tests!!"
 
 # ---------------------------------------------------------------------------
 # Speed up bcrypt: use rounds=4 (minimum) instead of production rounds=12.
@@ -101,17 +103,24 @@ TENANT_B_ID = uuid.uuid4()
 
 
 def _make_auth_a_api_key() -> AuthContext:
-    return AuthContext(tenant_id=TENANT_A_ID, auth_type="api_key", env="production")
+    return AuthContext(
+        tenant_id=TENANT_A_ID, auth_type="api_key", env="production",
+        agent_id="test-agent", api_key_prefix="edk_production_test1234",
+    )
 
 
 def _make_auth_a_admin() -> AuthContext:
     return AuthContext(
-        tenant_id=TENANT_A_ID, auth_type="dashboard", user_id="user_test_123", is_admin=True
+        tenant_id=TENANT_A_ID, auth_type="dashboard", user_id="user_test_123",
+        email="admin@test.com", is_admin=True,
     )
 
 
 def _make_auth_b_api_key() -> AuthContext:
-    return AuthContext(tenant_id=TENANT_B_ID, auth_type="api_key", env="production")
+    return AuthContext(
+        tenant_id=TENANT_B_ID, auth_type="api_key", env="production",
+        agent_id="test-agent-b", api_key_prefix="edk_production_test5678",
+    )
 
 
 def _make_auth_b_admin() -> AuthContext:
@@ -155,7 +164,9 @@ async def client(
     # Set app state for routes that access it directly
     app.state.redis = test_redis
     app.state.push_manager = push_manager
-    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24)
+    app.state.auth_provider = LocalAuthProvider(
+        redis=test_redis, session_ttl_hours=24, secret_key=_TEST_SECRET_KEY,
+    )
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
@@ -182,7 +193,9 @@ async def no_auth_client(
 
     app.state.redis = test_redis
     app.state.push_manager = push_manager
-    app.state.auth_provider = LocalAuthProvider(redis=test_redis, session_ttl_hours=24)
+    app.state.auth_provider = LocalAuthProvider(
+        redis=test_redis, session_ttl_hours=24, secret_key=_TEST_SECRET_KEY,
+    )
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)

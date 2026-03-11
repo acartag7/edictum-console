@@ -91,7 +91,11 @@ async def create_approval(
         )
 
     env = auth.env or "production"
-    approval = await approval_service.create_approval(db, auth.tenant_id, body, env=env)
+    # Identity from auth context, not request body (CLAUDE.md rule)
+    agent_id = auth.agent_id or f"key:{auth.api_key_prefix or 'unknown'}"
+    approval = await approval_service.create_approval(
+        db, auth.tenant_id, body, env=env, agent_id=agent_id,
+    )
     await db.commit()
 
     event_data = {
@@ -166,12 +170,14 @@ async def submit_decision(
     push: PushManager = Depends(get_push_manager),
 ) -> ApprovalResponse:
     """Submit a human decision on a pending approval."""
+    # Identity from auth context, not request body (CLAUDE.md rule)
+    decided_by = auth.email or f"user:{auth.user_id}"
     approval = await approval_service.submit_decision(
         db,
         auth.tenant_id,
         approval_id,
         approved=body.approved,
-        decided_by=body.decided_by,
+        decided_by=decided_by,
         reason=body.reason,
         decided_via=body.decided_via or "console",
     )

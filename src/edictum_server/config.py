@@ -93,6 +93,11 @@ class Settings(BaseSettings):
                 "EDICTUM_SECRET_KEY is required. "
                 'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
             )
+        if len(self.secret_key) < 32:
+            raise SystemExit(
+                f"EDICTUM_SECRET_KEY must be at least 32 characters (got {len(self.secret_key)}). "
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
+            )
         if not self.database_url:
             raise SystemExit(
                 "EDICTUM_DATABASE_URL is required. "

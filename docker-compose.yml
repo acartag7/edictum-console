@@ -15,8 +15,9 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -33,7 +34,7 @@ services:
     env_file: .env
     environment:
       EDICTUM_DATABASE_URL: postgresql+asyncpg://postgres:${POSTGRES_PASSWORD:?}@postgres:5432/edictum
-      EDICTUM_REDIS_URL: redis://redis:6379/0
+      EDICTUM_REDIS_URL: redis://:${REDIS_PASSWORD:?}@redis:6379/0
       EDICTUM_SECRET_KEY: ${EDICTUM_SECRET_KEY:?Set EDICTUM_SECRET_KEY in .env}
       EDICTUM_ADMIN_EMAIL: ${EDICTUM_ADMIN_EMAIL:-}
       EDICTUM_ADMIN_PASSWORD: ${EDICTUM_ADMIN_PASSWORD:-}

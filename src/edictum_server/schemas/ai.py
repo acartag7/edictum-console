@@ -18,7 +18,7 @@ class AiConfigResponse(BaseModel):
 class UpsertAiConfigRequest(BaseModel):
     """Request to create or update AI config."""
 
-    provider: str = Field(..., pattern=r"^(anthropic|openai|openrouter|ollama)$")
+    provider: str = Field(..., max_length=64, pattern=r"^(anthropic|openai|openrouter|ollama)$")
     api_key: str | None = Field(None, max_length=500)
     model: str | None = Field(None, max_length=200)
     base_url: str | None = Field(None, max_length=500)

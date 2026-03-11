@@ -282,7 +282,7 @@ async def test_submit_decision_cross_tenant(
     set_auth_tenant_b()
     resp = await client.put(
         f"/api/v1/approvals/{approval_id}",
-        json={"approved": True, "decided_by": "attacker"},
+        json={"approved": True},
     )
     assert resp.status_code == 409
 
