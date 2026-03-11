@@ -503,7 +503,13 @@ async def serve_spa(request: Request, full_path: str) -> FileResponse | HTMLResp
     """Serve the React SPA — return index.html for all routes (client-side routing)."""
     index = _STATIC_DIR.resolve() / "index.html"
     if index.is_file():
-        return FileResponse(index)
+        return FileResponse(
+            index,
+            # Never cache index.html at CDN layer — it references content-hashed
+            # assets that change on every build.  Without this, CDNs (Railway's
+            # Fastly edge, Cloudflare) cache stale HTML for hours.
+            headers={"Cache-Control": "no-cache"},
+        )
     return HTMLResponse(
         "<h1>Dashboard not built</h1>"
         "<p>Run <code>cd dashboard && pnpm build</code> or use the Vite dev server.</p>",

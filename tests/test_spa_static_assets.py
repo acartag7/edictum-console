@@ -107,3 +107,18 @@ async def test_nonexistent_asset_not_served_as_html(no_auth_client: AsyncClient)
     )
     # 404 or 302 redirect — both acceptable. 200 text/html is the bug.
     assert resp.status_code != 200, "Missing asset returned 200 — catch-all is swallowing it"
+
+
+@pytest.mark.usefixtures("_static_dashboard")
+async def test_spa_index_has_no_cache_header(no_auth_client: AsyncClient) -> None:
+    """index.html must set Cache-Control: no-cache so CDNs don't cache stale HTML.
+
+    Without this, Railway (Fastly) and Cloudflare cache index.html for hours.
+    When asset hashes change on redeploy, cached HTML references old assets → blank page.
+    """
+    resp = await no_auth_client.get("/dashboard/")
+    assert resp.status_code == 200
+    cache_control = resp.headers.get("cache-control", "")
+    assert (
+        "no-cache" in cache_control
+    ), f"index.html has Cache-Control: {cache_control!r} — CDNs will cache stale HTML"
