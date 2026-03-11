@@ -153,8 +153,15 @@ class LocalAuthProvider(AuthProvider):
 
     @staticmethod
     def _prehash(password: str) -> bytes:
-        """SHA256 pre-hash to fit within bcrypt's 72-byte limit."""
-        return hashlib.sha256(password.encode()).hexdigest().encode()
+        """SHA256 pre-hash to fit within bcrypt's 72-byte limit.
+
+        Standard pattern (Dropbox, etc.) to handle passwords > 72 bytes.
+        Security comes from bcrypt — the prehash only ensures the full password
+        contributes to the hash (bcrypt silently truncates at 72 bytes).
+        """
+        # lgtm[py/weak-sensitive-data-hashing] — prehash feeds into bcrypt
+        digest = hashlib.sha256(password.encode()).hexdigest()
+        return digest.encode()
 
     @staticmethod
     def hash_password(password: str) -> str:

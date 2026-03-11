@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 
+import bcrypt
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,10 +23,22 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
+# Pre-computed dummy hash for timing-safe login: run bcrypt even when
+# the user doesn't exist so response time is identical to wrong-password.
+_DUMMY_HASH = bcrypt.hashpw(b"dummy", bcrypt.gensalt(rounds=12)).decode()
+
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(..., max_length=255)
+    password: str = Field(..., max_length=1024)
+
+    @field_validator("password")
+    @classmethod
+    def reject_null_bytes(cls, v: str) -> str:
+        if "\x00" in v:
+            msg = "Null bytes are not allowed"
+            raise ValueError(msg)
+        return v
 
 
 class UserInfoResponse(BaseModel):
@@ -49,8 +62,14 @@ async def login(
     """Authenticate with email/password, receive session cookie."""
     provider = _get_auth_provider(request)
 
-    # Rate limit by IP -- keyed before any credential check to prevent brute force
-    client_ip = request.client.host if request.client else "unknown"
+    # Rate limit by IP -- keyed before any credential check to prevent brute force.
+    # Reject requests with no detectable IP to avoid a shared rate-limit bucket (#27).
+    if not request.client or not request.client.host:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"detail": "Cannot determine client address."},
+        )
+    client_ip = request.client.host
     rate_key = f"rate_limit:login:{client_ip}"
     try:
         await check_rate_limit(redis, rate_key)
@@ -64,8 +83,12 @@ async def login(
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
 
-    # Same error for bad email and bad password -- no user enumeration
-    if user is None or not provider.verify_password(body.password, user.password_hash):
+    # Timing-safe: always run bcrypt verification to prevent account
+    # enumeration via response-time differences (issue #15).
+    password_hash = user.password_hash if user is not None else _DUMMY_HASH
+    password_valid = provider.verify_password(body.password, password_hash)
+
+    if user is None or not password_valid:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",

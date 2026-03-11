@@ -53,16 +53,23 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if path.startswith(_EXEMPT_PREFIXES):
             return await call_next(request)
 
-        # API-key requests are exempt — they don't use cookies
+        # API-key requests are exempt — they don't use cookies.
+        # Require at least "Bearer edk_X" (prefix + 1 char) to prevent
+        # CSRF bypass via a bare "Bearer edk_" header with no actual key.
         auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer edk_"):
+        if auth_header.startswith("Bearer edk_") and len(auth_header) > len("Bearer edk_"):
             return await call_next(request)
 
         # Cookie-auth mutating request — require custom header
         if not request.headers.get("x-requested-with"):
-            return JSONResponse(
+            from edictum_server.security.headers import _HEADERS as _SECURITY_HEADERS
+
+            resp = JSONResponse(
                 {"detail": "Missing CSRF header."},
                 status_code=403,
             )
+            for name, value in _SECURITY_HEADERS.items():
+                resp.headers.setdefault(name, value)
+            return resp
 
         return await call_next(request)

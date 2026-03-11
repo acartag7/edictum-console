@@ -396,6 +396,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Security response headers (HSTS, CSP, X-Frame-Options, etc.)
+from edictum_server.security.headers import SecurityHeadersMiddleware  # noqa: E402
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # CSRF protection — must be added after CORS so it runs on the inner request.
 # Requires X-Requested-With header on cookie-auth mutating requests.
 from edictum_server.auth.csrf import CSRFMiddleware  # noqa: E402
@@ -454,11 +459,8 @@ _STATIC_DIR = Path(os.environ.get("EDICTUM_STATIC_DIR", "/app/static/dashboard")
 
 @app.get("/dashboard/{full_path:path}", response_model=None)
 async def serve_spa(request: Request, full_path: str) -> FileResponse | HTMLResponse:  # noqa: ARG001
-    """Serve the React SPA — static files or index.html for client-side routing."""
-    file_path = (_STATIC_DIR / full_path).resolve()
-    if full_path and file_path.is_file() and str(file_path).startswith(str(_STATIC_DIR.resolve())):
-        return FileResponse(file_path)
-    index = _STATIC_DIR / "index.html"
+    """Serve the React SPA — return index.html for all routes (client-side routing)."""
+    index = _STATIC_DIR.resolve() / "index.html"
     if index.is_file():
         return FileResponse(index)
     return HTMLResponse(

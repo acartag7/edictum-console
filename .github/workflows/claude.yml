@@ -32,13 +32,22 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
-      id-token: write
       actions: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0
+
+      # Prevent prompt injection: on PRs, extract CLAUDE.md from the base branch
+      # so a malicious PR cannot modify it to inject instructions into the agent.
+      - name: Extract governance files from base branch (PRs only)
+        if: github.event.issue.pull_request || github.event_name == 'pull_request_review_comment' || github.event_name == 'pull_request_review'
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref || 'main' }}
+        run: |
+          mkdir -p /tmp/governance
+          git show "origin/${BASE_REF}:CLAUDE.md" > /tmp/governance/CLAUDE.md 2>/dev/null || true
 
       - name: Generate app token
         id: app-token
@@ -54,6 +63,6 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
           model: claude-sonnet-4-6
-          claude_args: '--max-turns 30 --allowedTools "Bash(git:*),Bash(gh:*),Bash(pytest:*),Bash(python3:*),Bash(ruff:*),Bash(mypy:*),Bash(pnpm:*),Read,Glob,Grep,Write,Edit"'
+          claude_args: '--max-turns 30 --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git status:*),Bash(git show:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git branch:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh api:*),Bash(pytest:*),Bash(ruff:*),Bash(mypy:*),Bash(pnpm:*),Read,Glob,Grep,Write,Edit"'
           additional_permissions: |
             actions: read

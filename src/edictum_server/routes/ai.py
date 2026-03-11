@@ -77,15 +77,18 @@ async def update_config(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    await upsert_ai_config(
-        db, auth.tenant_id,
-        provider=body.provider,
-        api_key=body.api_key,
-        model=body.model,
-        base_url=body.base_url,
-        secret=secret,
-        updated_by=auth.user_id or "unknown",
-    )
+    try:
+        await upsert_ai_config(
+            db, auth.tenant_id,
+            provider=body.provider,
+            api_key=body.api_key,
+            model=body.model,
+            base_url=body.base_url,
+            secret=secret,
+            updated_by=auth.user_id or "unknown",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     await db.commit()
     return {"configured": True}
 

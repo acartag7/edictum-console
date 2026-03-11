@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import NotificationChannel
+from edictum_server.security.safe_transport import SafeTransport
 from edictum_server.security.validators import ValidationError as SecurityError
 from edictum_server.security.validators import validate_url
 from edictum_server.services.channel_test_helpers import test_email, test_http_channel
@@ -260,7 +261,9 @@ async def test_channel(
         if channel.channel_type == "email":
             success, message = await test_email(config)
         else:
-            async with httpx.AsyncClient(timeout=10) as client:
+            # Use SafeTransport to block SSRF via DNS rebinding (#23)
+            transport = SafeTransport()
+            async with httpx.AsyncClient(timeout=10, transport=transport) as client:
                 success, message = await test_http_channel(client, channel.channel_type, config)
     except httpx.HTTPStatusError as exc:
         message = f"HTTP {exc.response.status_code}: {exc.response.text[:200]}"
