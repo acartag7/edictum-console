@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -148,12 +148,19 @@ async def delete_rule(
 @router.get("/resolve/{agent_id}", response_model=ResolvedAssignment)
 async def resolve_agent_bundle(
     agent_id: str,
+    env: str | None = Query(
+        default=None, max_length=64, description="Filter rules by environment",
+    ),
     auth: AuthContext = Depends(require_dashboard_auth),
     db: AsyncSession = Depends(get_db),
 ) -> ResolvedAssignment:
-    """Preview which bundle an agent would receive (dry-run resolution)."""
+    """Preview which bundle an agent would receive (dry-run resolution).
+
+    When ``env`` is provided, only rules for that environment are considered.
+    When omitted, all tenant rules are evaluated (useful for dashboard previews).
+    """
     bundle_name, source, rule_id, rule_pattern = await svc.resolve_bundle(
-        db, auth.tenant_id, agent_id
+        db, auth.tenant_id, agent_id, env=env,
     )
     return ResolvedAssignment(
         bundle_name=bundle_name,
