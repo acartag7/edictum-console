@@ -43,7 +43,7 @@ contracts:
           - 'metadata\\.google\\.internal'
     then:
       effect: deny
-      message: "Blocked endpoint: {args.url}"
+      message: "Denied endpoint: {args.url}"
       tags: [security, ssrf]
 
   - id: pii-in-output

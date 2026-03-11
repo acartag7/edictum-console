@@ -63,7 +63,7 @@ export const EFFECT_TOOLTIPS: Record<string, { title: string; description: strin
   },
   observe: {
     title: "observe",
-    description: "Logs the event without blocking. Used for monitoring in shadow mode.",
+    description: "Logs the event without denying. Used for monitoring in observe mode.",
     href: `${DOCS}/contracts/effects#observe`,
   },
 }

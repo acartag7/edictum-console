@@ -13,7 +13,7 @@ def _make_event(call_id: str = "call-1") -> dict:
         "verdict": "deny",
         "mode": "enforce",
         "timestamp": "2026-02-18T12:00:00Z",
-        "payload": {"reason": "blocked"},
+        "payload": {"reason": "denied"},
     }
 
 

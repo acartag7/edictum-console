@@ -92,7 +92,7 @@ export function ContractDetail({ contract, coverage }: ContractDetailProps) {
             )}
             {contract.not_allows?.domains && (
               <>
-                <span className="font-medium text-muted-foreground">blocked</span>
+                <span className="font-medium text-muted-foreground">denied</span>
                 <span className="text-red-600 dark:text-red-400">{contract.not_allows.domains.join(", ")}</span>
               </>
             )}

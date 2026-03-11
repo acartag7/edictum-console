@@ -29,7 +29,7 @@ def _make_event(call_id: str = "call-1", **overrides: object) -> dict:
         "verdict": "deny",
         "mode": "enforce",
         "timestamp": "2026-02-18T12:00:00Z",
-        "payload": {"reason": "blocked"},
+        "payload": {"reason": "denied"},
     }
     base.update(overrides)
     return base
@@ -249,7 +249,7 @@ async def test_stats_handles_null_decision_name(
         _make_event("no-decision", payload={"reason": "no contract"}, timestamp=now),
         _make_event(
             "with-decision",
-            payload={"decision_name": "test-contract", "reason": "blocked"},
+            payload={"decision_name": "test-contract", "reason": "denied"},
             timestamp=now,
         ),
     ]
