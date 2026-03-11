@@ -135,19 +135,46 @@ async def list_tenant_bundles(
 async def list_bundle_names(
     db: AsyncSession,
     tenant_id: uuid.UUID,
+    *,
+    env: str | None = None,
 ) -> list[dict[str, object]]:
-    """Return distinct bundle names with aggregates (version_count, latest_version)."""
-    result = await db.execute(
-        select(
-            Bundle.name,
-            func.count(Bundle.id).label("version_count"),
-            func.max(Bundle.version).label("latest_version"),
-            func.max(Bundle.created_at).label("last_updated"),
+    """Return distinct bundle names with aggregates (version_count, latest_version).
+
+    When *env* is provided, only versions deployed to that environment are
+    counted — prevents cross-env metadata leakage for env-scoped API keys.
+    """
+    if env is not None:
+        # Scoped: only count versions that have a deployment to this env
+        stmt = (
+            select(
+                Bundle.name,
+                func.count(func.distinct(Bundle.id)).label("version_count"),
+                func.max(Bundle.version).label("latest_version"),
+                func.max(Bundle.created_at).label("last_updated"),
+            )
+            .join(
+                Deployment,
+                (Bundle.tenant_id == Deployment.tenant_id)
+                & (Bundle.name == Deployment.bundle_name)
+                & (Bundle.version == Deployment.bundle_version),
+            )
+            .where(Bundle.tenant_id == tenant_id, Deployment.env == env)
+            .group_by(Bundle.name)
+            .order_by(func.max(Bundle.created_at).desc())
         )
-        .where(Bundle.tenant_id == tenant_id)
-        .group_by(Bundle.name)
-        .order_by(func.max(Bundle.created_at).desc())
-    )
+    else:
+        stmt = (
+            select(
+                Bundle.name,
+                func.count(Bundle.id).label("version_count"),
+                func.max(Bundle.version).label("latest_version"),
+                func.max(Bundle.created_at).label("last_updated"),
+            )
+            .where(Bundle.tenant_id == tenant_id)
+            .group_by(Bundle.name)
+            .order_by(func.max(Bundle.created_at).desc())
+        )
+    result = await db.execute(stmt)
     return [
         {
             "name": row.name,
@@ -235,9 +262,7 @@ async def get_deployed_envs_by_bundle_name(
         .subquery()
     )
 
-    result = await db.execute(
-        select(ranked.c.bundle_name, ranked.c.env).where(ranked.c.rn == 1)
-    )
+    result = await db.execute(select(ranked.c.bundle_name, ranked.c.env).where(ranked.c.rn == 1))
 
     mapping: dict[str, list[str]] = defaultdict(list)
     for name, env in result.all():
@@ -250,28 +275,48 @@ async def get_deployed_envs_by_bundle_name(
 async def get_bundle_enrichment(
     db: AsyncSession,
     tenant_id: uuid.UUID,
+    *,
+    env: str | None = None,
 ) -> dict[str, dict[str, object]]:
     """Return contract_count and last_deployed_at per bundle name.
 
-    contract_count is parsed from the latest version's YAML.
+    contract_count is parsed from the latest deployed version's YAML.
     last_deployed_at comes from the deployments table.
+
+    When *env* is provided, both the "latest version" subquery and the
+    deployment timestamp are scoped to that environment — prevents
+    cross-env metadata leakage for env-scoped API keys.
     """
-    # Get latest version per bundle name
-    latest_subq = (
-        select(
-            Bundle.name,
-            func.max(Bundle.version).label("max_version"),
+    # Get latest version per bundle name (optionally scoped to env)
+    if env is not None:
+        # Latest version deployed to this specific env
+        latest_subq = (
+            select(
+                Deployment.bundle_name.label("name"),
+                func.max(Deployment.bundle_version).label("max_version"),
+            )
+            .where(Deployment.tenant_id == tenant_id, Deployment.env == env)
+            .group_by(Deployment.bundle_name)
+            .subquery()
+        )
+    else:
+        # Latest version across all envs (dashboard view)
+        latest_subq = (
+            select(
+                Bundle.name,
+                func.max(Bundle.version).label("max_version"),
+            )
+            .where(Bundle.tenant_id == tenant_id)
+            .group_by(Bundle.name)
+            .subquery()
+        )
+    latest_bundles = await db.execute(
+        select(Bundle)
+        .join(
+            latest_subq,
+            (Bundle.name == latest_subq.c.name) & (Bundle.version == latest_subq.c.max_version),
         )
         .where(Bundle.tenant_id == tenant_id)
-        .group_by(Bundle.name)
-        .subquery()
-    )
-    latest_bundles = await db.execute(
-        select(Bundle).join(
-            latest_subq,
-            (Bundle.name == latest_subq.c.name)
-            & (Bundle.version == latest_subq.c.max_version),
-        ).where(Bundle.tenant_id == tenant_id)
     )
 
     enrichment: dict[str, dict[str, object]] = {}
@@ -287,13 +332,16 @@ async def get_bundle_enrichment(
             pass
         enrichment[bundle.name] = {"contract_count": contract_count, "last_deployed_at": None}
 
-    # Get last deployment date per bundle name
+    # Get last deployment date per bundle name (scoped to env if provided)
+    dep_filters = [Deployment.tenant_id == tenant_id]
+    if env is not None:
+        dep_filters.append(Deployment.env == env)
     dep_result = await db.execute(
         select(
             Deployment.bundle_name,
             func.max(Deployment.created_at).label("last_deployed_at"),
         )
-        .where(Deployment.tenant_id == tenant_id)
+        .where(*dep_filters)
         .group_by(Deployment.bundle_name)
     )
     for row in dep_result.all():

@@ -102,19 +102,17 @@ async def list_bundles(
     When accessed via API key, only bundles deployed to the key's environment
     are returned.
     """
-    names = await list_bundle_names(db, auth.tenant_id)
+    env_filter = auth.env if (auth.auth_type == "api_key" and auth.env) else None
+    names = await list_bundle_names(db, auth.tenant_id, env=env_filter)
     envs_by_name = await get_deployed_envs_by_bundle_name(db, auth.tenant_id)
-    enrichment = await get_bundle_enrichment(db, auth.tenant_id)
+    enrichment = await get_bundle_enrichment(db, auth.tenant_id, env=env_filter)
     result: list[BundleSummaryResponse] = []
     for entry in names:
         bname = str(entry["name"])
         deployed_envs = envs_by_name.get(bname, [])
-        # API key auth: only return bundles deployed to the key's env
-        if auth.auth_type == "api_key" and auth.env:
-            if auth.env not in deployed_envs:
-                continue
-            # Narrow deployed_envs to only the key's env
-            deployed_envs = [auth.env]
+        # API key auth: narrow visible envs to the key's env
+        if env_filter:
+            deployed_envs = [env_filter] if env_filter in deployed_envs else []
         enrich = enrichment.get(bname, {})
         result.append(
             BundleSummaryResponse(
