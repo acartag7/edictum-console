@@ -414,6 +414,12 @@ if _settings.trusted_proxies:
     _trusted_hosts = [h.strip() for h in _settings.trusted_proxies.split(",") if h.strip()]
     app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=_trusted_hosts)
 
+# Request body size limits — outermost middleware (added last = runs first).
+# Rejects oversized bodies with 413 before any parsing or auth (issue #16).
+from edictum_server.security.body_limit import BodySizeLimitMiddleware  # noqa: E402
+
+app.add_middleware(BodySizeLimitMiddleware)
+
 # Routers
 app.include_router(health.router)
 app.include_router(setup.router)
