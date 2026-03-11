@@ -9,6 +9,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import TenantAiConfig
+from edictum_server.security.validators import ValidationError as SecurityError
+from edictum_server.security.validators import validate_url
 
 
 async def get_ai_config(
@@ -34,6 +36,13 @@ async def upsert_ai_config(
     updated_by: str,
 ) -> TenantAiConfig:
     """Create or update tenant AI config. Encrypts API key before storage."""
+    # Validate base_url against private/internal networks to prevent SSRF (#23)
+    if base_url:
+        try:
+            await validate_url(base_url)
+        except SecurityError as exc:
+            raise ValueError(f"Invalid base_url: {exc}") from exc
+
     encrypted_key: bytes | None = None
     if api_key:
         box = SecretBox(secret)

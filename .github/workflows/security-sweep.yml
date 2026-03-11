@@ -50,7 +50,7 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ steps.app-token.outputs.token }}
           model: claude-sonnet-4-6
-          claude_args: '--max-turns 80 --allowedTools "Bash(git:*),Bash(gh:*),Bash(python3:*),Bash(cat:*),Bash(grep:*),Bash(wc:*),Read,Glob,Grep,Write"'
+          claude_args: '--max-turns 80 --allowedTools "Bash(git diff:*),Bash(git log:*),Bash(git show:*),Bash(git checkout:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(git rev-parse:*),Bash(git branch:*),Bash(gh pr:*),Bash(gh issue:*),Bash(gh api:*),Bash(python3 security/*),Bash(cat:*),Bash(grep:*),Bash(wc:*),Read,Glob,Grep,Write"'
           prompt: |
             You are a security auditor performing a full adversarial sweep of the Edictum Console codebase. This is a **security product** — a self-hostable agent operations console. A single vulnerability doesn't create a bug; it destroys the credibility of a startup that sells trust.
 

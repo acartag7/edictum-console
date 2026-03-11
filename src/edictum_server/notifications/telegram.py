@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import json
 import logging
 from typing import Any
@@ -113,12 +114,12 @@ class TelegramChannel(NotificationChannel):
         _label = {"approved": "Approved ✅", "denied": "Denied ❌", "timeout": "Expired ⏰"}
         label = _label.get(status, status.capitalize())
         text = (
-            f"<b>Request {status.capitalize()}</b>\n\n"
-            f"<b>Decision:</b> {label}\n"
-            f"<b>Decided by:</b> {decided_by or 'unknown'}"
+            f"<b>Request {html.escape(status.capitalize())}</b>\n\n"
+            f"<b>Decision:</b> {html.escape(label)}\n"
+            f"<b>Decided by:</b> {html.escape(decided_by or 'unknown')}"
         )
         if reason:
-            text += f"\n<b>Reason:</b> {reason}"
+            text += f"\n<b>Reason:</b> {html.escape(reason)}"
         await self.client.edit_message_text(
             chat_id=msg_info["chat_id"],
             message_id=msg_info["message_id"],
@@ -137,9 +138,9 @@ class TelegramChannel(NotificationChannel):
                 msg_info = json.loads(raw)
                 text = (
                     "<b>HITL Approval \u2014 \u23f0 EXPIRED</b>\n\n"
-                    f"<b>Agent:</b> {item.get('agent_id', 'unknown')}\n"
-                    f"<b>Tool:</b> {item.get('tool_name', 'unknown')}\n"
-                    f"<b>Env:</b> {item.get('env', 'unknown')}"
+                    f"<b>Agent:</b> {html.escape(str(item.get('agent_id', 'unknown')))}\n"
+                    f"<b>Tool:</b> {html.escape(str(item.get('tool_name', 'unknown')))}\n"
+                    f"<b>Env:</b> {html.escape(str(item.get('env', 'unknown')))}"
                 )
                 await self.client.edit_message_text(
                     chat_id=msg_info["chat_id"],
@@ -180,15 +181,16 @@ def _format_approval(
     timeout_seconds: int,
     timeout_effect: str,
 ) -> str:
+    # Escape all user-controlled values to prevent HTML injection (#27)
     lines = [
         "<b>HITL Approval Request</b>", "",
-        f"<b>Agent:</b> {agent_id}",
-        f"<b>Tool:</b> {tool_name}",
-        f"<b>Env:</b> {env}",
-        f"<b>Timeout:</b> {timeout_seconds}s ({timeout_effect} on timeout)",
-        "", "<b>Message:</b>", message,
+        f"<b>Agent:</b> {html.escape(agent_id)}",
+        f"<b>Tool:</b> {html.escape(tool_name)}",
+        f"<b>Env:</b> {html.escape(env)}",
+        f"<b>Timeout:</b> {timeout_seconds}s ({html.escape(timeout_effect)} on timeout)",
+        "", "<b>Message:</b>", html.escape(message),
     ]
     if tool_args is not None:
         args_str = json.dumps(tool_args, indent=2)[:500]
-        lines.extend(["", "<b>Arguments:</b>", f"<code>{args_str}</code>"])
+        lines.extend(["", "<b>Arguments:</b>", f"<code>{html.escape(args_str)}</code>"])
     return "\n".join(lines)

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,9 +23,17 @@ _MIN_PASSWORD_LENGTH = 12
 
 
 class SetupRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(..., max_length=1024)
     tenant_name: str | None = None
+
+    @field_validator("password")
+    @classmethod
+    def reject_null_bytes(cls, v: str) -> str:
+        if "\x00" in v:
+            msg = "Null bytes are not allowed"
+            raise ValueError(msg)
+        return v
 
     @field_validator("password")
     @classmethod
