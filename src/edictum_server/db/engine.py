@@ -22,7 +22,15 @@ def init_engine(url: str | None = None) -> AsyncEngine:
     """Create the async engine and session factory.  Called once at startup."""
     global _engine, _session_factory  # noqa: PLW0603
     database_url = url or get_settings().database_url
-    _engine = create_async_engine(database_url, echo=False)
+    _engine = create_async_engine(
+        database_url,
+        echo=False,
+        pool_size=20,
+        max_overflow=10,
+        pool_timeout=30,
+        pool_recycle=3600,
+        pool_pre_ping=True,
+    )
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

@@ -46,6 +46,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
-    ]
+    ],
+    "overrides": {
+      "hono": ">=4.12.7"
+    }
   }
 }

@@ -56,5 +56,6 @@ PROMPT-*.md
 SECURITY-AUDIT-*.md
 .claude/settings.json
 dashboard/.claude/
-docs/
+docs/*
+!docs/openapi.json
 mkdocs.yml
