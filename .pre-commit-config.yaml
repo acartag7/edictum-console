@@ -13,4 +13,5 @@ repos:
         entry: python scripts/check-terminology.py
         language: python
         types_or: [python, markdown, yaml, json, ts, tsx]
+        exclude: ^docs/openapi\.json$
         pass_filenames: true

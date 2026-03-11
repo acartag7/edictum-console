@@ -42,4 +42,8 @@ asyncio.run(run_migrations())
 "
 
 echo "Starting edictum-console..."
-exec uvicorn edictum_server.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+exec uvicorn edictum_server.main:app --host 0.0.0.0 --port "${PORT:-8000}" \
+  --timeout-keep-alive 5 \
+  --limit-concurrency 100 \
+  --limit-max-requests 10000 \
+  --backlog 128
