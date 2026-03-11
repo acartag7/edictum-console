@@ -7,20 +7,31 @@ export interface ServiceHealth {
   latency_ms: number | null
 }
 
+/** Minimal public health response (no auth required). */
 export interface HealthResponse {
   status: string
+  bootstrap_complete: boolean
+}
+
+/** Full health details (requires dashboard auth). */
+export interface HealthDetailsResponse extends HealthResponse {
   version: string
   auth_provider: string
-  bootstrap_complete: boolean
   base_url_https?: boolean
-  // Enriched fields (optional — older servers won't have these)
   database?: ServiceHealth
   redis?: ServiceHealth
   connected_agents?: number
+  workers?: Record<string, string>
 }
 
+/** Public health check — only status + bootstrap. */
 export function getHealth() {
   return request<HealthResponse>("/health", { skipAuthRedirect: true })
+}
+
+/** Authenticated health check — full operational details. */
+export function getHealthDetails() {
+  return request<HealthDetailsResponse>("/health/details")
 }
 
 // --- Auth ---

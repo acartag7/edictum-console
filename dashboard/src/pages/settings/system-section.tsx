@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { HealthResponse } from "@/lib/api"
+import type { HealthDetailsResponse } from "@/lib/api"
 
 interface SystemSectionProps {
-  health: HealthResponse | null
+  health: HealthDetailsResponse | null
   loading: boolean
   lastChecked: Date | null
   onRefresh: () => void
@@ -40,7 +40,7 @@ function StatusDot({ status }: { status: "ok" | "degraded" | "down" }) {
   return <span className={`inline-block size-2 rounded-full ${colors[status]}`} />
 }
 
-function overallStatus(health: HealthResponse): "ok" | "degraded" | "down" {
+function overallStatus(health: HealthDetailsResponse): "ok" | "degraded" | "down" {
   if (health.status === "ok") return "ok"
   if (health.status === "degraded") return "degraded"
   return "down"
