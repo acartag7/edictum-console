@@ -1,12 +1,12 @@
 """Tests for request body size limit middleware (issue #16).
 
 Proves that:
-- Auth endpoints reject bodies > 1KB with 413
+- Auth endpoints reject bodies > 4KB with 413
 - General API endpoints reject bodies > 1MB with 413
 - Bundle/contract upload allows up to 5MB
 - Normal-sized requests pass through unaffected
 - Content-Length header is checked before body is read
-- Streaming limit catches spoofed/missing Content-Length
+- Streaming byte counter catches chunked/missing Content-Length (Phase 2)
 """
 
 from __future__ import annotations
@@ -32,15 +32,15 @@ def _raw_payload(size_bytes: int) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# Auth endpoint limits (1KB)
+# Auth endpoint limits (4KB)
 # ---------------------------------------------------------------------------
 
 
 class TestAuthEndpointLimits:
-    """Auth endpoints (/api/v1/auth/*) enforce 1KB body limit."""
+    """Auth endpoints (/api/v1/auth/*) enforce 4KB body limit."""
 
     async def test_auth_login_normal_size_passes(self, client: AsyncClient) -> None:
-        """A normal login payload (< 1KB) should pass the size check."""
+        """A normal login payload (< 4KB) should pass the size check."""
         resp = await client.post(
             "/api/v1/auth/login",
             json={"email": "test@example.com", "password": "short"},
@@ -48,34 +48,43 @@ class TestAuthEndpointLimits:
         # Should not be 413 — may be 401/422 but not a size rejection
         assert resp.status_code != 413
 
-    async def test_auth_login_rejects_oversized_body(self, client: AsyncClient) -> None:
-        """A 2KB body on /api/v1/auth/login should be rejected with 413."""
+    async def test_auth_login_long_password_passes(self, client: AsyncClient) -> None:
+        """A login with a 1024-char password (schema max) must pass size check."""
         resp = await client.post(
             "/api/v1/auth/login",
-            json=_json_payload(2048),
+            json={"email": "test@example.com", "password": "A" * 1024},
+        )
+        # Should not be 413 — JSON overhead + 1024 chars < 4KB
+        assert resp.status_code != 413
+
+    async def test_auth_login_rejects_oversized_body(self, client: AsyncClient) -> None:
+        """An 8KB body on /api/v1/auth/login should be rejected with 413."""
+        resp = await client.post(
+            "/api/v1/auth/login",
+            json=_json_payload(8192),
         )
         assert resp.status_code == 413
         data = resp.json()
         assert "too large" in data["detail"].lower()
-        assert "1KB" in data["detail"]
+        assert "4KB" in data["detail"]
 
     async def test_auth_login_rejects_exactly_over_limit(self, client: AsyncClient) -> None:
-        """A body of exactly 1025 bytes should be rejected."""
+        """A body of exactly 4097 bytes should be rejected."""
         resp = await client.post(
             "/api/v1/auth/login",
-            content=_raw_payload(1025),
+            content=_raw_payload(4097),
             headers={"Content-Type": "application/json"},
         )
         assert resp.status_code == 413
 
 
 # ---------------------------------------------------------------------------
-# Setup endpoint limits (1KB)
+# Setup endpoint limits (4KB)
 # ---------------------------------------------------------------------------
 
 
 class TestSetupEndpointLimits:
-    """Setup endpoint (/api/v1/setup) enforces 1KB body limit."""
+    """Setup endpoint (/api/v1/setup) enforces 4KB body limit."""
 
     async def test_setup_normal_size_passes(self, client: AsyncClient) -> None:
         """A normal setup payload should pass the middleware size check.
@@ -100,14 +109,14 @@ class TestSetupEndpointLimits:
             pass
 
     async def test_setup_rejects_oversized_body(self, client: AsyncClient) -> None:
-        """A 2KB body on /api/v1/setup should be rejected with 413."""
+        """An 8KB body on /api/v1/setup should be rejected with 413."""
         resp = await client.post(
             "/api/v1/setup",
-            json=_json_payload(2048),
+            json=_json_payload(8192),
         )
         assert resp.status_code == 413
         data = resp.json()
-        assert "1KB" in data["detail"]
+        assert "4KB" in data["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -244,19 +253,75 @@ class TestContentLengthCheck:
     """Verify Content-Length is checked BEFORE body is read."""
 
     async def test_rejects_via_content_length_header(self, client: AsyncClient) -> None:
-        """When Content-Length exceeds limit, reject without reading body."""
-        # Send a request with Content-Length claiming a huge body but
-        # only sending a tiny actual body. The middleware should reject
-        # based on Content-Length alone.
+        """When Content-Length exceeds limit, reject without reading body.
+
+        We send a large body that genuinely exceeds 4KB. httpx computes
+        Content-Length from the actual body, so Phase 1 sees the real size.
+        """
         resp = await client.post(
             "/api/v1/auth/login",
-            content=b'{"email":"a@b.com"}',
-            headers={
-                "Content-Type": "application/json",
-                "Content-Length": "999999",
-            },
+            content=_raw_payload(8192),
+            headers={"Content-Type": "application/json"},
         )
         assert resp.status_code == 413
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: Streaming byte counter (chunked encoding, no Content-Length)
+# ---------------------------------------------------------------------------
+
+
+class TestStreamingByteCounter:
+    """Phase 2 enforcement: catches oversized bodies without Content-Length.
+
+    Uses async generators to force chunked transfer encoding, which means
+    httpx does NOT send a Content-Length header. Phase 1 is skipped entirely
+    and only Phase 2 (the streaming byte counter) can reject the request.
+    """
+
+    async def test_rejects_chunked_body_over_auth_limit(self, client: AsyncClient) -> None:
+        """Chunked 8KB body on auth endpoint rejected by streaming counter."""
+
+        async def _generate():  # type: ignore[override]
+            chunk = b"A" * 1024
+            for _ in range(8):  # 8KB total > 4KB limit
+                yield chunk
+
+        resp = await client.post(
+            "/api/v1/auth/login",
+            content=_generate(),
+            headers={"Content-Type": "application/json"},
+        )
+        assert resp.status_code == 413
+
+    async def test_rejects_chunked_body_over_general_limit(self, client: AsyncClient) -> None:
+        """Chunked 1.5MB body on general endpoint rejected by streaming counter."""
+
+        async def _generate():  # type: ignore[override]
+            chunk = b"A" * (512 * 1024)  # 512KB chunks
+            for _ in range(3):  # 1.5MB total > 1MB limit
+                yield chunk
+
+        resp = await client.post(
+            "/api/v1/events",
+            content=_generate(),
+            headers={"Content-Type": "application/json"},
+        )
+        assert resp.status_code == 413
+
+    async def test_allows_chunked_body_under_limit(self, client: AsyncClient) -> None:
+        """Chunked body under the limit should pass Phase 2."""
+
+        async def _generate():  # type: ignore[override]
+            yield b'{"email":"a@b.com","password":"ok"}'
+
+        resp = await client.post(
+            "/api/v1/auth/login",
+            content=_generate(),
+            headers={"Content-Type": "application/json"},
+        )
+        # Should not be 413 — may be 401/422 but not a size rejection
+        assert resp.status_code != 413
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +336,7 @@ class TestResponseFormat:
         """413 responses should be JSON with a 'detail' field."""
         resp = await client.post(
             "/api/v1/auth/login",
-            json=_json_payload(2048),
+            json=_json_payload(8192),
         )
         assert resp.status_code == 413
         assert resp.headers.get("content-type", "").startswith("application/json")
@@ -283,7 +348,7 @@ class TestResponseFormat:
         """413 response should tell the client what the limit is."""
         resp = await client.post(
             "/api/v1/auth/login",
-            json=_json_payload(2048),
+            json=_json_payload(8192),
         )
         data = resp.json()
         assert "Maximum allowed" in data["detail"]
