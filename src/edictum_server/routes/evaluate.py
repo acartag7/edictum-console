@@ -42,24 +42,39 @@ async def evaluate(
             status_code=429,
             detail="Too many concurrent evaluations. Try again shortly.",
         ) from exc
+
+    # Create thread task independently so we can track it after timeout.
+    # shield() prevents wait_for from cancelling the inner task, letting
+    # the done-callback fire and release the semaphore when the thread
+    # actually finishes — not when the HTTP response is sent.
+    thread_task = asyncio.ensure_future(
+        asyncio.to_thread(
+            evaluate_contracts,
+            yaml_content=body.yaml_content,
+            tool_name=body.tool_name,
+            tool_args=body.tool_args,
+            environment=body.environment,
+            principal_input=body.principal,
+        )
+    )
     try:
-        return await asyncio.wait_for(
-            asyncio.to_thread(
-                evaluate_contracts,
-                yaml_content=body.yaml_content,
-                tool_name=body.tool_name,
-                tool_args=body.tool_args,
-                environment=body.environment,
-                principal_input=body.principal,
-            ),
+        result = await asyncio.wait_for(
+            asyncio.shield(thread_task),
             timeout=_EVALUATE_TIMEOUT_SECONDS,
         )
     except TimeoutError as exc:
+        # Thread still running — release semaphore only when it finishes.
+        thread_task.add_done_callback(lambda _: _EVALUATE_SEMAPHORE.release())
         raise HTTPException(
             status_code=422,
             detail="Evaluation timed out — contract bundle may be too complex.",
         ) from exc
     except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    finally:
         _EVALUATE_SEMAPHORE.release()
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except BaseException:
+        _EVALUATE_SEMAPHORE.release()
+        raise
+    else:
+        _EVALUATE_SEMAPHORE.release()
+        return result

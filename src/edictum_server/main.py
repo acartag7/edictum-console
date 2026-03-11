@@ -122,9 +122,7 @@ async def _worker_monitor(app: FastAPI) -> None:
             workers = app.state.background_workers
             if workers["approval_timeout"].done():
                 logger.warning("Restarting crashed approval_timeout worker")
-                workers["approval_timeout"] = asyncio.create_task(
-                    _approval_timeout_worker(app)
-                )
+                workers["approval_timeout"] = asyncio.create_task(_approval_timeout_worker(app))
             if workers["partition"].done():
                 logger.warning("Restarting crashed partition worker")
                 workers["partition"] = asyncio.create_task(_partition_worker())
@@ -405,7 +403,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _settings.cors_origins.split(",") if o.strip()],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "X-Requested-With", "Authorization", "X-Edictum-Agent-Id"],
 )
 
@@ -456,17 +454,14 @@ app.include_router(ai_usage.router)
 
 # --- Validation error handler: strip Pydantic internals ----------------------
 @app.exception_handler(RequestValidationError)
-async def validation_error_handler(
-    _request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def validation_error_handler(_request: Request, exc: RequestValidationError) -> JSONResponse:
     """Return 422 with sanitized error details.
 
     Strips ``ctx`` and ``type`` fields from Pydantic errors to avoid
     leaking framework internals (L4 finding).
     """
     sanitized = [
-        {"loc": e.get("loc", []), "msg": e.get("msg", "Validation error")}
-        for e in exc.errors()
+        {"loc": e.get("loc", []), "msg": e.get("msg", "Validation error")} for e in exc.errors()
     ]
     return JSONResponse(status_code=422, content={"detail": sanitized})
 
