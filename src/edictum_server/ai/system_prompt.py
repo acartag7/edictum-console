@@ -78,7 +78,7 @@ when:
     equals: production
 then:
   effect: deny
-  message: "Blocked: cannot email competitor domains in production"
+  message: "Denied: cannot email competitor domains in production"
 ```
 
 ### Pre-contract: Block all exec() calls

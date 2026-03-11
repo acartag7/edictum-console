@@ -119,7 +119,7 @@ async def test_tampered_session_payload(
     except Exception:
         # Server raised an unhandled error -- still means no access granted.
         # This is an implementation issue (should catch JSONDecodeError in
-        # authenticate), but from a security perspective the attacker is blocked.
+        # authenticate), but from a security perspective the attacker is denied.
         pass
 
 
