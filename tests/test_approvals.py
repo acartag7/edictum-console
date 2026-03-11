@@ -71,7 +71,7 @@ async def test_list_pending_approvals(client: AsyncClient) -> None:
     first_id = all_data[0]["id"]
     await client.put(
         f"/api/v1/approvals/{first_id}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
 
     resp = await client.get("/api/v1/approvals", params={"status": "pending"})
@@ -85,7 +85,7 @@ async def test_submit_decision_approve(client: AsyncClient) -> None:
     created = await _create_approval(client)
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "admin", "reason": "looks safe"},
+        json={"approved": True, "reason": "looks safe"},
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -99,7 +99,7 @@ async def test_submit_decision_deny(client: AsyncClient) -> None:
     created = await _create_approval(client)
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": False, "decided_by": "admin", "reason": "too risky"},
+        json={"approved": False, "reason": "too risky"},
     )
     assert resp.status_code == 200
     data = resp.json()

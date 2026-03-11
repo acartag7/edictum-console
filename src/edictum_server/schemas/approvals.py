@@ -42,6 +42,5 @@ class ApprovalResponse(BaseModel):
 
 class SubmitDecisionRequest(BaseModel):
     approved: bool
-    decided_by: str | None = Field(default=None, max_length=255)
     reason: str | None = Field(default=None, max_length=2000)
     decided_via: str | None = Field(default=None, max_length=64)

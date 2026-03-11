@@ -40,13 +40,13 @@ async def test_double_approve(client: AsyncClient) -> None:
     created = await _create_approval(client)
     first = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
     assert first.status_code == 200
 
     second = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
     assert second.status_code == 409
 
@@ -56,11 +56,11 @@ async def test_approve_then_deny(client: AsyncClient) -> None:
     created = await _create_approval(client)
     await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": False, "decided_by": "admin"},
+        json={"approved": False},
     )
     assert resp.status_code == 409
 
@@ -70,11 +70,11 @@ async def test_deny_then_approve(client: AsyncClient) -> None:
     created = await _create_approval(client)
     await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": False, "decided_by": "admin"},
+        json={"approved": False},
     )
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
     assert resp.status_code == 409
 
@@ -84,7 +84,7 @@ async def test_approve_nonexistent(client: AsyncClient) -> None:
     fake_id = str(uuid.uuid4())
     resp = await client.put(
         f"/api/v1/approvals/{fake_id}",
-        json={"approved": True, "decided_by": "admin"},
+        json={"approved": True},
     )
     assert resp.status_code == 409
 
@@ -98,7 +98,7 @@ async def test_approve_wrong_tenant(
     set_auth_tenant_b()
     resp = await client.put(
         f"/api/v1/approvals/{created['id']}",
-        json={"approved": True, "decided_by": "attacker"},
+        json={"approved": True},
     )
     assert resp.status_code == 409
 
