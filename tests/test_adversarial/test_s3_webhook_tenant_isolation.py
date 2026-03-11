@@ -22,7 +22,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import Approval, NotificationChannel
 from edictum_server.services.notification_service import encrypt_config
@@ -69,9 +68,7 @@ def _make_discord_channel(tenant_id: uuid.UUID, public_key_hex: str) -> Notifica
     return ch
 
 
-def _make_telegram_channel(
-    tenant_id: uuid.UUID, webhook_secret: str
-) -> NotificationChannel:
+def _make_telegram_channel(tenant_id: uuid.UUID, webhook_secret: str) -> NotificationChannel:
     config = {
         "bot_token": "fake-token",
         "chat_id": 12345,
@@ -105,9 +102,10 @@ def _make_approval(tenant_id: uuid.UUID) -> Approval:
 
 def _slack_signature(signing_secret: str, timestamp: str, body: bytes) -> str:
     sig_basestring = f"v0:{timestamp}:{body.decode()}"
-    return "v0=" + hmac.new(
-        signing_secret.encode(), sig_basestring.encode(), hashlib.sha256
-    ).hexdigest()
+    return (
+        "v0="
+        + hmac.new(signing_secret.encode(), sig_basestring.encode(), hashlib.sha256).hexdigest()
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -160,8 +158,8 @@ async def test_slack_cross_tenant_redis_mismatch_rejected(
     timestamp = str(int(time.time()))
     signature = _slack_signature(signing_secret, timestamp, body_bytes)
 
-    from edictum_server.main import app
     from edictum_server.db.engine import get_db
+    from edictum_server.main import app
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import _override_get_db
@@ -173,6 +171,7 @@ async def test_slack_cross_tenant_redis_mismatch_rejected(
     app.state.push_manager = push_manager
 
     from edictum_server.notifications.base import NotificationManager
+
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
@@ -241,8 +240,8 @@ async def test_slack_same_tenant_redis_accepted(
     timestamp = str(int(time.time()))
     signature = _slack_signature(signing_secret, timestamp, body_bytes)
 
-    from edictum_server.main import app
     from edictum_server.db.engine import get_db
+    from edictum_server.main import app
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import _override_get_db
@@ -254,6 +253,7 @@ async def test_slack_same_tenant_redis_accepted(
     app.state.push_manager = push_manager
 
     from edictum_server.notifications.base import NotificationManager
+
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
@@ -329,8 +329,8 @@ async def test_discord_cross_tenant_redis_mismatch_rejected(
     message = timestamp.encode() + body_bytes
     signature_hex = signing_key.sign(message).signature.hex()
 
-    from edictum_server.main import app
     from edictum_server.db.engine import get_db
+    from edictum_server.main import app
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import _override_get_db
@@ -342,6 +342,7 @@ async def test_discord_cross_tenant_redis_mismatch_rejected(
     app.state.push_manager = push_manager
 
     from edictum_server.notifications.base import NotificationManager
+
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
@@ -411,8 +412,8 @@ async def test_discord_same_tenant_redis_accepted(
     message = timestamp.encode() + body_bytes
     signature_hex = signing_key.sign(message).signature.hex()
 
-    from edictum_server.main import app
     from edictum_server.db.engine import get_db
+    from edictum_server.main import app
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import _override_get_db
@@ -424,6 +425,7 @@ async def test_discord_same_tenant_redis_accepted(
     app.state.push_manager = push_manager
 
     from edictum_server.notifications.base import NotificationManager
+
     app.state.notification_manager = NotificationManager()
 
     transport = ASGITransport(app=app)
@@ -504,13 +506,12 @@ async def test_telegram_cross_tenant_redis_mismatch_rejected(
     mock_tg_channel.update_decision = AsyncMock()
 
     from edictum_server.notifications.base import NotificationManager
-    from edictum_server.notifications.telegram import TelegramChannel
 
     mock_mgr = MagicMock(spec=NotificationManager)
     mock_mgr.channels = [mock_tg_channel]
 
-    from edictum_server.main import app
     from edictum_server.db.engine import get_db
+    from edictum_server.main import app
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import _override_get_db
@@ -541,10 +542,10 @@ async def test_telegram_cross_tenant_redis_mismatch_rejected(
         # The cross-check must have fired — answer_callback_query called with "expired"
         mock_tg_channel.client.answer_callback_query.assert_called_once()
         call_args = mock_tg_channel.client.answer_callback_query.call_args
-        assert "expired" in (call_args[0][1] if call_args[0] else "").lower() or \
-               "expired" in str(call_args).lower(), (
-            f"Expected 'expired' callback answer on tenant mismatch, got: {call_args}"
-        )
+        assert (
+            "expired" in (call_args[0][1] if call_args[0] else "").lower()
+            or "expired" in str(call_args).lower()
+        ), f"Expected 'expired' callback answer on tenant mismatch, got: {call_args}"
     finally:
         app.dependency_overrides.clear()
 
@@ -599,8 +600,8 @@ async def test_telegram_same_tenant_redis_accepted(
     mock_mgr = MagicMock(spec=NotificationManager)
     mock_mgr.channels = [mock_tg_channel]
 
-    from edictum_server.main import app
     from edictum_server.db.engine import get_db
+    from edictum_server.main import app
     from edictum_server.push.manager import get_push_manager
     from edictum_server.redis.client import get_redis
     from tests.conftest import _override_get_db
