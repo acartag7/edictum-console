@@ -17,6 +17,7 @@ async def resolve_bundle(
     agent_id: str,
     agent_tags: dict[str, Any] | None = None,
     agent_provided_bundle: str | None = None,
+    env: str | None = None,
 ) -> tuple[str | None, str, uuid.UUID | None, str | None]:
     """Resolve which bundle an agent should receive.
 
@@ -24,6 +25,11 @@ async def resolve_bundle(
     1. Explicit bundle_name on AgentRegistration
     2. First matching AssignmentRule by priority (lower = first)
     3. Agent-provided bundle_name from SSE query param
+
+    Args:
+        env: When provided, only rules matching this environment are
+            considered. When ``None`` (dashboard preview), all rules
+            for the tenant are evaluated.
 
     Returns: (bundle_name, source, rule_id, rule_pattern)
     - source: "explicit" | "rule" | "agent_provided" | "none"
@@ -40,11 +46,14 @@ async def resolve_bundle(
         return (agent_reg.bundle_name, "explicit", None, None)
 
     # (2) Check assignment rules (ordered by priority ASC)
-    rules_result = await db.execute(
-        select(AssignmentRule)
-        .where(AssignmentRule.tenant_id == tenant_id)
-        .order_by(AssignmentRule.priority.asc())
+    stmt = select(AssignmentRule).where(
+        AssignmentRule.tenant_id == tenant_id,
     )
+    if env is not None:
+        stmt = stmt.where(AssignmentRule.env == env)
+    stmt = stmt.order_by(AssignmentRule.priority.asc())
+
+    rules_result = await db.execute(stmt)
     rules = rules_result.scalars().all()
 
     effective_tags: dict[str, Any] = {}
