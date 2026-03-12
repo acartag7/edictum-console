@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Annotated
+
+from pydantic import BaseModel, Field, StringConstraints
 
 
 class SessionValueResponse(BaseModel):
@@ -20,7 +22,9 @@ class SetValueRequest(BaseModel):
 class BatchGetRequest(BaseModel):
     """Request body for batch-reading multiple session keys."""
 
-    keys: list[str] = Field(..., max_length=100, description="Keys to retrieve")
+    keys: list[
+        Annotated[str, StringConstraints(max_length=256, pattern=r"^[a-zA-Z0-9_\-\.:/]+$")]
+    ] = Field(..., max_length=100, description="Keys to retrieve")
 
 
 class BatchGetResponse(BaseModel):
