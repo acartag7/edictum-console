@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 
@@ -53,7 +55,7 @@ class GenerateDescriptionRequest(BaseModel):
     name: str = Field(..., max_length=255)
     type: str = Field(..., max_length=32)
     definition_yaml: str = Field(..., max_length=50_000)
-    tags: list[str] = Field(default_factory=list, max_length=20)
+    tags: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=20)
 
 
 class GenerateDescriptionResponse(BaseModel):
