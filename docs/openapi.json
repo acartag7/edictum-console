@@ -1936,6 +1936,82 @@
         }
       }
     },
+    "/api/v1/sessions/batch": {
+      "post": {
+        "tags": [
+          "sessions"
+        ],
+        "summary": "Batch-read multiple session values",
+        "description": "Read multiple keys from the session store in a single call.",
+        "operationId": "batch_get_api_v1_sessions_batch_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "name": "X-Edictum-Agent-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Edictum-Agent-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchGetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchGetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/sessions/{key}": {
       "get": {
         "tags": [
@@ -4679,6 +4755,51 @@
         ],
         "title": "AssistRequest",
         "description": "Chat request for the AI contract assistant."
+      },
+      "BatchGetRequest": {
+        "properties": {
+          "keys": {
+            "items": {
+              "type": "string",
+              "maxLength": 256,
+              "pattern": "^[a-zA-Z0-9_\\-\\.:/]+$"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Keys",
+            "description": "Keys to retrieve"
+          }
+        },
+        "type": "object",
+        "required": [
+          "keys"
+        ],
+        "title": "BatchGetRequest",
+        "description": "Request body for batch-reading multiple session keys."
+      },
+      "BatchGetResponse": {
+        "properties": {
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "values"
+        ],
+        "title": "BatchGetResponse",
+        "description": "Response for batch-reading multiple session keys."
       },
       "BulkAssignRequest": {
         "properties": {
