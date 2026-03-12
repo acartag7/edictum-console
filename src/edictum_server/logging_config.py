@@ -74,7 +74,7 @@ def configure_logging(
     root.addHandler(handler)
     root.setLevel(level)
 
-    # Quiet down noisy third-party loggers
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    # Quiet down noisy third-party loggers — but keep uvicorn.access
+    # for HTTP audit trail (every inbound request logged with path/status).
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
