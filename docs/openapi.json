@@ -3791,6 +3791,48 @@
         }
       }
     },
+    "/api/v1/contracts/generate-description": {
+      "post": {
+        "tags": [
+          "ai"
+        ],
+        "summary": "Generate Description",
+        "description": "Generate a one-line description for a contract from its YAML definition.",
+        "operationId": "generate_description_api_v1_contracts_generate_description_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateDescriptionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateDescriptionResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/contracts/assist": {
       "post": {
         "tags": [
@@ -6882,6 +6924,56 @@
         ],
         "title": "FleetSummary",
         "description": "Fleet-level aggregate metrics."
+      },
+      "GenerateDescriptionRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "maxLength": 32,
+            "title": "Type"
+          },
+          "definition_yaml": {
+            "type": "string",
+            "maxLength": 50000,
+            "title": "Definition Yaml"
+          },
+          "tags": {
+            "items": {
+              "type": "string",
+              "maxLength": 64
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "definition_yaml"
+        ],
+        "title": "GenerateDescriptionRequest",
+        "description": "Request to generate a description from contract metadata."
+      },
+      "GenerateDescriptionResponse": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "title": "GenerateDescriptionResponse",
+        "description": "AI-generated description for a contract."
       },
       "HTTPValidationError": {
         "properties": {
