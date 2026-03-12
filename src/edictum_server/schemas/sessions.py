@@ -17,6 +17,18 @@ class SetValueRequest(BaseModel):
     value: str = Field(..., max_length=1_048_576, description="The string value to store")
 
 
+class BatchGetRequest(BaseModel):
+    """Request body for batch-reading multiple session keys."""
+
+    keys: list[str] = Field(..., max_length=100, description="Keys to retrieve")
+
+
+class BatchGetResponse(BaseModel):
+    """Response for batch-reading multiple session keys."""
+
+    values: dict[str, str | None]
+
+
 class IncrementRequest(BaseModel):
     """Request body for incrementing a numeric session key."""
 

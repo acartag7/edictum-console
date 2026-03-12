@@ -15,6 +15,8 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from edictum_server.auth.dependencies import AuthContext, require_api_key
 from edictum_server.redis.client import get_redis
 from edictum_server.schemas.sessions import (
+    BatchGetRequest,
+    BatchGetResponse,
     IncrementRequest,
     IncrementResponse,
     SessionValueResponse,
@@ -31,6 +33,26 @@ from edictum_server.services.session_service import (
 _KEY_PATTERN = r"^[a-zA-Z0-9_\-\.:/]+$"
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
+
+
+# ── Batch endpoint (must be before /{key} to avoid being swallowed) ──
+
+
+@router.post(
+    "/batch",
+    response_model=BatchGetResponse,
+    summary="Batch-read multiple session values",
+)
+async def batch_get(
+    body: BatchGetRequest,
+    auth: AuthContext = Depends(require_api_key),
+    r: aioredis.Redis = Depends(get_redis),
+) -> BatchGetResponse:
+    """Read multiple keys from the session store in a single call."""
+    values: dict[str, str | None] = {}
+    for key in body.keys:
+        values[key] = await get_session_value(r, auth.tenant_id, key)
+    return BatchGetResponse(values=values)
 
 
 @router.get(
