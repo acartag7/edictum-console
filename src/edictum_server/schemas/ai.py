@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 
@@ -45,6 +47,21 @@ class AssistRequest(BaseModel):
 
     messages: list[AssistMessage] = Field(..., max_length=50)
     current_yaml: str | None = Field(None, max_length=50_000)
+
+
+class GenerateDescriptionRequest(BaseModel):
+    """Request to generate a description from contract metadata."""
+
+    name: str = Field(..., max_length=255)
+    type: str = Field(..., max_length=32)
+    definition_yaml: str = Field(..., max_length=50_000)
+    tags: list[Annotated[str, Field(max_length=64)]] = Field(default_factory=list, max_length=20)
+
+
+class GenerateDescriptionResponse(BaseModel):
+    """AI-generated description for a contract."""
+
+    description: str
 
 
 class DailyUsage(BaseModel):

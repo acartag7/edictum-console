@@ -17,6 +17,8 @@ from edictum_server.db.engine import get_db
 from edictum_server.schemas.ai import (
     AiConfigResponse,
     AssistRequest,
+    GenerateDescriptionRequest,
+    GenerateDescriptionResponse,
     TestConnectionResponse,
     UpsertAiConfigRequest,
 )
@@ -157,6 +159,103 @@ async def test_connection(
         if api_key and api_key in err_msg:
             err_msg = err_msg.replace(api_key, "***")
         return TestConnectionResponse(ok=False, error=err_msg)
+    finally:
+        if provider:
+            await provider.close()
+
+
+@router.post(
+    "/api/v1/contracts/generate-description",
+    response_model=GenerateDescriptionResponse,
+)
+async def generate_description(
+    body: GenerateDescriptionRequest,
+    auth: AuthContext = Depends(require_dashboard_auth),
+    db: AsyncSession = Depends(get_db),
+    settings: Settings = Depends(get_settings),
+) -> GenerateDescriptionResponse:
+    """Generate a one-line description for a contract from its YAML definition."""
+    config = await get_ai_config(db, auth.tenant_id)
+    if not config:
+        raise HTTPException(status_code=503, detail="AI assistant not configured")
+
+    api_key: str | None = None
+    provider = None
+    try:
+        secret = settings.get_signing_secret()
+        if config.api_key_encrypted:
+            api_key = decrypt_api_key(config.api_key_encrypted, secret)
+
+        from edictum_server.ai import create_provider
+
+        provider = create_provider(
+            provider=config.provider,
+            api_key=api_key,
+            model=config.model,
+            base_url=config.base_url,
+        )
+
+        tags_str = ", ".join(body.tags) if body.tags else "none"
+        prompt = (
+            "Generate a concise one-sentence description for this edictum contract. "
+            "The description should explain what the contract does in plain English "
+            "(what it checks and what action it takes). Do not include the contract "
+            "name or ID. Output ONLY the description text, nothing else.\n\n"
+            f"Name: {body.name}\n"
+            f"Type: {body.type}\n"
+            f"Tags: {tags_str}\n"
+            f"Definition:\n```yaml\n{body.definition_yaml}\n```"
+        )
+
+        start = time.monotonic()
+        chunks: list[str] = []
+        async for chunk in provider.stream_response(
+            messages=[{"role": "user", "content": prompt}],
+            system_prompt=(
+                "You are a technical writer for edictum, an AI agent governance system. "
+                "You write clear, concise descriptions for governance contracts. "
+                "Respond with ONLY the description — no quotes, no prefix, no explanation."
+            ),
+            max_tokens=150,
+        ):
+            chunks.append(chunk)
+            if time.monotonic() - start > 15:
+                break  # 15s safety timeout
+
+        description = "".join(chunks).strip().strip('"').strip("'")
+
+        # Log usage
+        elapsed = int((time.monotonic() - start) * 1000)
+        usage = provider.last_usage
+        if usage:
+            from edictum_server.ai.pricing import estimate_cost, fetch_model_pricing
+
+            pricing = await fetch_model_pricing(provider.model, config.provider)
+            cost = estimate_cost(usage.input_tokens, usage.output_tokens, pricing)
+            await log_usage(
+                tenant_id=auth.tenant_id,
+                provider_name=config.provider,
+                model=provider.model,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                total_tokens=usage.input_tokens + usage.output_tokens,
+                duration_ms=elapsed,
+                cost=cost,
+            )
+
+        return GenerateDescriptionResponse(description=description)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "AI description generation failed for tenant %s: %s",
+            auth.tenant_id,
+            exc,
+        )
+        err_msg = str(exc)
+        if api_key and api_key in err_msg:
+            err_msg = err_msg.replace(api_key, "***")
+        raise HTTPException(status_code=503, detail=err_msg) from exc
     finally:
         if provider:
             await provider.close()
