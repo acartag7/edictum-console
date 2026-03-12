@@ -14,7 +14,11 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { YamlEditor } from "@/components/yaml-editor"
 import { useYamlValidation } from "@/hooks/use-yaml-validation"
-import { createContract, updateContract, type LibraryContract } from "@/lib/api/contracts"
+import { createContract, updateContract, generateDescription, type LibraryContract } from "@/lib/api/contracts"
+import { getAiConfig } from "@/lib/api/settings"
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { AiChatPanel } from "./ai-chat-panel"
 
 const CONTRACT_TYPES = ["pre", "post", "session", "sandbox"] as const
@@ -58,7 +62,16 @@ export function ContractEditorDialog({
   const [definition, setDefinition] = useState("")
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [aiConfigured, setAiConfigured] = useState(false)
+  const [generatingDesc, setGeneratingDesc] = useState(false)
   const { validation, validate, reset } = useYamlValidation()
+
+  // Check AI config on mount
+  useEffect(() => {
+    getAiConfig()
+      .then((cfg) => setAiConfigured(cfg.configured))
+      .catch(() => setAiConfigured(false))
+  }, [])
 
   // Reset form when dialog opens or contract changes
   useEffect(() => {
@@ -126,6 +139,28 @@ export function ContractEditorDialog({
       } catch {
         // ignore parse errors — validation already handles display
       }
+    }
+  }
+
+  const handleGenerateDescription = async () => {
+    if (!definition.trim() || !name.trim()) {
+      toast.error("Name and definition are required to generate a description")
+      return
+    }
+    setGeneratingDesc(true)
+    try {
+      const tagList = tags.split(",").map((t) => t.trim()).filter(Boolean)
+      const result = await generateDescription({
+        name,
+        type,
+        definition_yaml: definition,
+        tags: tagList.length > 0 ? tagList : undefined,
+      })
+      setDescription(result.description)
+    } catch {
+      toast.error("Failed to generate description")
+    } finally {
+      setGeneratingDesc(false)
     }
   }
 
@@ -233,7 +268,27 @@ export function ContractEditorDialog({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="contract-desc">Description</Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="contract-desc">Description</Label>
+                    {aiConfigured && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost" size="icon"
+                            className="size-5"
+                            disabled={generatingDesc || !definition.trim() || !name.trim()}
+                            onClick={handleGenerateDescription}
+                          >
+                            {generatingDesc
+                              ? <Loader2 className="size-3 animate-spin" />
+                              : <Sparkles className="size-3" />
+                            }
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Generate with AI</TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                   <Input id="contract-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Optional" />
                 </div>
                 <div className="space-y-1.5">

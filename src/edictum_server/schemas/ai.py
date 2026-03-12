@@ -47,6 +47,21 @@ class AssistRequest(BaseModel):
     current_yaml: str | None = Field(None, max_length=50_000)
 
 
+class GenerateDescriptionRequest(BaseModel):
+    """Request to generate a description from contract metadata."""
+
+    name: str = Field(..., max_length=255)
+    type: str = Field(..., max_length=32)
+    definition_yaml: str = Field(..., max_length=50_000)
+    tags: list[str] = Field(default_factory=list, max_length=20)
+
+
+class GenerateDescriptionResponse(BaseModel):
+    """AI-generated description for a contract."""
+
+    description: str
+
+
 class DailyUsage(BaseModel):
     """Aggregated AI usage for a single day."""
 

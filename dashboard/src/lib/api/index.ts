@@ -6,7 +6,7 @@ export { listBundles, listBundleVersions, uploadBundle, deployBundle, getBundleY
 export { getAgentStatus, getAgentCoverage, getFleetCoverage, getAgentHistory } from "./agents"
 export { getStatsOverview, getContractStats } from "./stats"
 export { listChannels, createChannel, updateChannel, deleteChannel, testChannel, rotateSigningKey, purgeEvents, getAiConfig, updateAiConfig, deleteAiConfig, testAiConnection, getAiUsage } from "./settings"
-export { listContracts, getContract, getContractVersion, createContract, updateContract, deleteContract, importContracts, getContractUsage } from "./contracts"
+export { listContracts, getContract, getContractVersion, createContract, updateContract, deleteContract, importContracts, getContractUsage, generateDescription } from "./contracts"
 export { listCompositions, getComposition, createComposition, updateComposition, deleteComposition, previewComposition, deployComposition } from "./compositions"
 
 export type { HealthResponse, HealthDetailsResponse, ServiceHealth, UserInfo, SetupResponse, ApiKeyInfo, CreateKeyResponse } from "./auth"

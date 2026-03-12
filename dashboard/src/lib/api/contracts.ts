@@ -116,3 +116,15 @@ export function getContractUsage(
     `/contracts/${encodeURIComponent(contractId)}/usage`,
   )
 }
+
+export function generateDescription(body: {
+  name: string
+  type: string
+  definition_yaml: string
+  tags?: string[]
+}): Promise<{ description: string }> {
+  return request<{ description: string }>("/contracts/generate-description", {
+    method: "POST",
+    body: JSON.stringify(body),
+  })
+}
