@@ -9,15 +9,14 @@ import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.auth.local import LocalAuthProvider
 from edictum_server.auth.provider import DashboardAuthContext
 from edictum_server.db.engine import get_db
-from edictum_server.db.models import User
 from edictum_server.rate_limit import RateLimitExceeded, check_rate_limit
 from edictum_server.redis.client import get_redis
+from edictum_server.services.auth_service import find_user_by_email
 
 logger = logging.getLogger(__name__)
 
@@ -80,8 +79,7 @@ async def login(
             headers={"Retry-After": str(exc.retry_after)},
         )
 
-    result = await db.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
+    user = await find_user_by_email(db, body.email)
 
     # Timing-safe: always run bcrypt verification to prevent account
     # enumeration via response-time differences (issue #15).

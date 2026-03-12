@@ -111,6 +111,47 @@ async def _validate_urls(channel_type: str, config: dict[str, Any]) -> None:
                 raise ValueError(f"Invalid {field}: {exc}") from exc
 
 
+async def find_enabled_channels_by_type(
+    db: AsyncSession,
+    channel_type: str,
+) -> list[NotificationChannel]:
+    """Find all enabled channels of a given type.
+
+    Used by webhook handlers (Slack, Discord, Telegram) where authentication
+    is via signature verification rather than session/API key. The query does
+    NOT filter by tenant_id because the webhook doesn't know the tenant yet —
+    tenant scoping comes from matching the channel's own tenant_id after
+    signature verification succeeds.
+    """
+    result = await db.execute(
+        select(NotificationChannel).where(
+            NotificationChannel.channel_type == channel_type,
+            NotificationChannel.enabled == True,  # noqa: E712
+        )
+    )
+    return list(result.scalars().all())
+
+
+async def find_channel_by_id_and_type(
+    db: AsyncSession,
+    channel_id: uuid.UUID,
+    channel_type: str,
+) -> NotificationChannel | None:
+    """Find a single enabled channel by ID and type.
+
+    Used by Telegram webhook where the channel_id is in the URL path.
+    Does NOT filter by tenant_id — see find_enabled_channels_by_type docstring.
+    """
+    result = await db.execute(
+        select(NotificationChannel).where(
+            NotificationChannel.id == channel_id,
+            NotificationChannel.channel_type == channel_type,
+            NotificationChannel.enabled == True,  # noqa: E712
+        )
+    )
+    return result.scalar_one_or_none()
+
+
 async def list_channels(
     db: AsyncSession,
     tenant_id: uuid.UUID,

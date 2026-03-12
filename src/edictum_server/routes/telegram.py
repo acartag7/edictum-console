@@ -11,17 +11,18 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.config import get_settings
 from edictum_server.db.engine import get_db
-from edictum_server.db.models import NotificationChannel as ChannelModel
 from edictum_server.notifications.base import NotificationManager
 from edictum_server.notifications.telegram import TelegramChannel
 from edictum_server.push.manager import PushManager
 from edictum_server.services import approval_service
-from edictum_server.services.notification_service import get_channel_config
+from edictum_server.services.notification_service import (
+    find_channel_by_id_and_type,
+    get_channel_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -163,14 +164,7 @@ async def db_channel_webhook(
     except ValueError:
         return Response(status_code=404)
 
-    result = await db.execute(
-        select(ChannelModel).where(
-            ChannelModel.id == ch_uuid,
-            ChannelModel.channel_type == "telegram",
-            ChannelModel.enabled == True,  # noqa: E712
-        )
-    )
-    db_channel = result.scalar_one_or_none()
+    db_channel = await find_channel_by_id_and_type(db, ch_uuid, "telegram")
     if db_channel is None:
         return Response(status_code=404)
 

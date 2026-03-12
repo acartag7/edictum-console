@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from nacl.exceptions import BadSignatureError
 from nacl.signing import VerifyKey
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.config import get_settings
@@ -21,7 +20,10 @@ from edictum_server.db.models import NotificationChannel as ChannelModel
 from edictum_server.notifications.base import NotificationManager
 from edictum_server.push.manager import PushManager
 from edictum_server.services import approval_service
-from edictum_server.services.notification_service import get_channel_config
+from edictum_server.services.notification_service import (
+    find_enabled_channels_by_type,
+    get_channel_config,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -64,13 +66,7 @@ async def discord_interaction(
     except ValueError:
         encryption_secret = None
 
-    result = await db.execute(
-        select(ChannelModel).where(
-            ChannelModel.channel_type == "discord",
-            ChannelModel.enabled == True,  # noqa: E712
-        )
-    )
-    db_channels = result.scalars().all()
+    db_channels = await find_enabled_channels_by_type(db, "discord")
 
     matched_channel: ChannelModel | None = None
     for ch in db_channels:

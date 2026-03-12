@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from nacl.secret import SecretBox
@@ -12,15 +13,15 @@ from edictum_server.db.models import TenantAiConfig
 from edictum_server.security.validators import ValidationError as SecurityError
 from edictum_server.security.validators import validate_url
 
+logger = logging.getLogger(__name__)
+
 
 async def get_ai_config(
     db: AsyncSession,
     tenant_id: uuid.UUID,
 ) -> TenantAiConfig | None:
     """Fetch the AI config for a tenant, or None if not configured."""
-    result = await db.execute(
-        select(TenantAiConfig).where(TenantAiConfig.tenant_id == tenant_id)
-    )
+    result = await db.execute(select(TenantAiConfig).where(TenantAiConfig.tenant_id == tenant_id))
     return result.scalar_one_or_none()
 
 
@@ -96,3 +97,36 @@ def mask_api_key(raw: str) -> str:
     if len(raw) <= 12:
         return "***"
     return f"{raw[:8]}...{raw[-4:]}"
+
+
+async def log_usage(
+    *,
+    tenant_id: uuid.UUID,
+    provider_name: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    total_tokens: int,
+    duration_ms: int,
+    cost: float | None,
+) -> None:
+    """Persist an AI usage log entry. Fire-and-forget — errors are logged, not raised."""
+    try:
+        from edictum_server.db.engine import async_session_factory
+        from edictum_server.db.models import AiUsageLog
+
+        async with async_session_factory()() as session:
+            log = AiUsageLog(
+                tenant_id=tenant_id,
+                provider=provider_name,
+                model=model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=total_tokens,
+                duration_ms=duration_ms,
+                estimated_cost_usd=cost,
+            )
+            session.add(log)
+            await session.commit()
+    except Exception:
+        logger.exception("Failed to log AI usage for tenant %s", tenant_id)

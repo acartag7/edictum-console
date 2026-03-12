@@ -34,17 +34,21 @@ SCAN_DIRS = [
 # ---------------------------------------------------------------------------
 
 ALLOWED_FILES: set[str] = {
-    "routes/health.py",       # System-wide health check, no auth
-    "routes/auth.py",         # Auth endpoints, no tenant context yet
-    "routes/setup.py",        # Bootstrap endpoint, S7 guarded
-    "routes/slack.py",        # Webhook callback, tenant resolved from Redis
-    "routes/telegram.py",     # Webhook callback, tenant resolved from Redis
-    "routes/discord.py",      # Webhook callback, tenant resolved from Redis
+    "routes/health.py",  # System-wide health check, no auth
+    "routes/auth.py",  # Auth endpoints, no tenant context yet
+    "routes/setup.py",  # Bootstrap endpoint, S7 guarded
+    "routes/slack.py",  # Webhook callback, tenant resolved from Redis
+    "routes/telegram.py",  # Webhook callback, tenant resolved from Redis
+    "routes/discord.py",  # Webhook callback, tenant resolved from Redis
 }
 
 ALLOWED_FUNCTIONS: set[str] = {
     # System-level functions that intentionally operate across all tenants.
-    "expire_approvals",       # Background task: expires all pending approvals globally
+    "expire_approvals",  # Background task: expires all pending approvals globally
+    "find_user_by_email",  # Login: user lookup before tenant is known
+    "get_user_count",  # Health/bootstrap check: system-wide, no auth
+    "find_enabled_channels_by_type",  # Webhook: tenant resolved via signature verification
+    "find_channel_by_id_and_type",  # Webhook: tenant resolved via signature verification
 }
 
 # The token we require somewhere in the same statement to prove tenant scoping.
@@ -70,10 +74,7 @@ _SUBQUERY_SELECT_RE = re.compile(r"select\s*\(\s*\w+\.c\.")
 
 def _is_allowed_file(rel_path: str) -> bool:
     """Check if a file is in the allowlist."""
-    for allowed in ALLOWED_FILES:
-        if rel_path.endswith(allowed):
-            return True
-    return False
+    return any(rel_path.endswith(allowed) for allowed in ALLOWED_FILES)
 
 
 def _find_enclosing_function(lines: list[str], line_idx: int) -> str | None:
@@ -84,9 +85,9 @@ def _find_enclosing_function(lines: list[str], line_idx: int) -> str | None:
             parts = stripped.split("(", 1)
             name_part = parts[0]
             if name_part.startswith("async def "):
-                return name_part[len("async def "):]
+                return name_part[len("async def ") :]
             if name_part.startswith("def "):
-                return name_part[len("def "):]
+                return name_part[len("def ") :]
     return None
 
 
@@ -103,11 +104,11 @@ def _count_parens(line: str) -> int:
     j = 0
     while j < len(line):
         if not in_single_quote and not in_double_quote:
-            if line[j:j + 3] == '"""':
+            if line[j : j + 3] == '"""':
                 in_triple_double = not in_triple_double
                 j += 3
                 continue
-            if line[j:j + 3] == "'''":
+            if line[j : j + 3] == "'''":
                 in_triple_single = not in_triple_single
                 j += 3
                 continue
@@ -364,8 +365,7 @@ def scan_file(filepath: Path, verbose: bool = False) -> list[str]:
             if func_name and func_name in ALLOWED_FUNCTIONS:
                 if verbose:
                     print(
-                        f"  SKIP (allowlisted function): "
-                        f"{rel_path}:{i + 1} in {func_name}()"
+                        f"  SKIP (allowlisted function): " f"{rel_path}:{i + 1} in {func_name}()"
                     )
                 i += 1
                 continue
@@ -380,20 +380,14 @@ def scan_file(filepath: Path, verbose: bool = False) -> list[str]:
                 # patterns that the single-line check may have missed).
                 if ".correlate(" in statement or ".scalar_subquery()" in statement:
                     if verbose:
-                        print(
-                            f"  SKIP (correlated subquery): "
-                            f"{rel_path}:{i + 1}"
-                        )
+                        print(f"  SKIP (correlated subquery): " f"{rel_path}:{i + 1}")
                     i = end_idx + 1
                     continue
 
                 # Check for subquery column access in the full statement
                 if _SUBQUERY_SELECT_RE.search(statement):
                     if verbose:
-                        print(
-                            f"  SKIP (subquery column select): "
-                            f"{rel_path}:{i + 1}"
-                        )
+                        print(f"  SKIP (subquery column select): " f"{rel_path}:{i + 1}")
                     i = end_idx + 1
                     continue
 
@@ -405,18 +399,12 @@ def scan_file(filepath: Path, verbose: bool = False) -> list[str]:
                     func_body = _get_function_body(lines, i)
                     if TENANT_TOKEN in func_body:
                         if verbose:
-                            print(
-                                f"  SKIP (tenant_id via *filters): "
-                                f"{rel_path}:{i + 1}"
-                            )
+                            print(f"  SKIP (tenant_id via *filters): " f"{rel_path}:{i + 1}")
                         i = end_idx + 1
                         continue
 
                 line_num = i + 1
-                msg = (
-                    f"FAIL: {rel_path}:{line_num} "
-                    f"-- {op_name}() without tenant_id filter"
-                )
+                msg = f"FAIL: {rel_path}:{line_num} " f"-- {op_name}() without tenant_id filter"
                 if func_name:
                     msg += f" [in {func_name}()]"
                 violations.append(msg)
@@ -442,7 +430,8 @@ def main() -> int:
         description="Check tenant isolation on SQLAlchemy queries (S3 boundary)."
     )
     parser.add_argument(
-        "--verbose", "-v",
+        "--verbose",
+        "-v",
         action="store_true",
         help="Print skipped files/functions and offending statement snippets.",
     )
@@ -476,19 +465,13 @@ def main() -> int:
         for v in all_violations:
             print(f"  {v}")
         print()
-        print(
-            f"Scanned {files_scanned} files. "
-            f"Found {len(all_violations)} violation(s)."
-        )
+        print(f"Scanned {files_scanned} files. " f"Found {len(all_violations)} violation(s).")
         print()
         print("To suppress false positives, add entries to ALLOWED_FILES or")
         print("ALLOWED_FUNCTIONS at the top of this script.")
         return 1
     else:
-        print(
-            f"OK: Scanned {files_scanned} files. "
-            f"No tenant isolation violations found."
-        )
+        print(f"OK: Scanned {files_scanned} files. " f"No tenant isolation violations found.")
         return 0
 
 

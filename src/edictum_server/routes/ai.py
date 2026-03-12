@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-import uuid
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,6 +24,7 @@ from edictum_server.services.ai_service import (
     decrypt_api_key,
     delete_ai_config,
     get_ai_config,
+    log_usage,
     mask_api_key,
     upsert_ai_config,
 )
@@ -318,7 +318,7 @@ async def assist(
                 yield f"data: {json.dumps(usage_event)}\n\n"
 
                 # Persist usage log
-                await _log_usage(
+                await log_usage(
                     tenant_id=tenant_id,
                     provider_name=provider_name,
                     model=model_name,
@@ -345,36 +345,3 @@ async def assist(
             "X-Accel-Buffering": "no",
         },
     )
-
-
-async def _log_usage(
-    *,
-    tenant_id: uuid.UUID,
-    provider_name: str,
-    model: str,
-    input_tokens: int,
-    output_tokens: int,
-    total_tokens: int,
-    duration_ms: int,
-    cost: float | None,
-) -> None:
-    """Persist an AI usage log entry. Fire-and-forget — errors are logged, not raised."""
-    try:
-        from edictum_server.db.engine import async_session_factory
-        from edictum_server.db.models import AiUsageLog
-
-        async with async_session_factory()() as session:
-            log = AiUsageLog(
-                tenant_id=tenant_id,
-                provider=provider_name,
-                model=model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                total_tokens=total_tokens,
-                duration_ms=duration_ms,
-                estimated_cost_usd=cost,
-            )
-            session.add(log)
-            await session.commit()
-    except Exception:
-        logger.exception("Failed to log AI usage for tenant %s", tenant_id)
