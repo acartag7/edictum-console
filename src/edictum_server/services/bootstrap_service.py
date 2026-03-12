@@ -10,7 +10,6 @@ import logging
 from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
-from fastapi import FastAPI
 from sqlalchemy import func, select
 
 from edictum_server.config import Settings, get_settings
@@ -19,7 +18,7 @@ from edictum_server.db.engine import async_session_factory
 logger = logging.getLogger(__name__)
 
 
-async def bootstrap_admin(_app: FastAPI) -> None:
+async def bootstrap_admin() -> None:
     """Create default tenant + admin user on first run if no users exist."""
     settings = get_settings()
     from edictum_server.auth.local import LocalAuthProvider

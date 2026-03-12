@@ -113,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.exception("Failed to load notification channels from DB")
 
     # Bootstrap admin on first run
-    await bootstrap_admin(app)
+    await bootstrap_admin()
 
     # Ensure every tenant has an active signing key
     await ensure_signing_keys(settings)
