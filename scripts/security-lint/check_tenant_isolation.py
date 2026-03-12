@@ -49,6 +49,8 @@ ALLOWED_FUNCTIONS: set[str] = {
     "get_user_count",  # Health/bootstrap check: system-wide, no auth
     "find_enabled_channels_by_type",  # Webhook: tenant resolved via signature verification
     "find_channel_by_id_and_type",  # Webhook: tenant resolved via signature verification
+    "bootstrap_admin",  # Bootstrap: checks if any users exist (S7 guarded)
+    "cleanup_ai_usage",  # Maintenance: deletes expired rows globally
 }
 
 # The token we require somewhere in the same statement to prove tenant scoping.
