@@ -3,37 +3,39 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import structlog
 from fastapi import Request
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Maximum number of queued SSE events per connection before dropping.
 _MAX_QUEUE_SIZE = 1000
 
 # Event types forwarded to dashboard SSE subscribers.
-_DASHBOARD_EVENT_TYPES = frozenset({
-    "api_key_created",
-    "api_key_revoked",
-    "approval_created",
-    "approval_decided",
-    "approval_timeout",
-    "assignment_changed",
-    "bundle_deployed",
-    "bundle_uploaded",
-    "composition_changed",
-    "contract_created",
-    "contract_update",
-    "contract_updated",
-    "event_created",
-    "signing_key_rotated",
-})
+_DASHBOARD_EVENT_TYPES = frozenset(
+    {
+        "api_key_created",
+        "api_key_revoked",
+        "approval_created",
+        "approval_decided",
+        "approval_timeout",
+        "assignment_changed",
+        "bundle_deployed",
+        "bundle_uploaded",
+        "composition_changed",
+        "contract_created",
+        "contract_update",
+        "contract_updated",
+        "event_created",
+        "signing_key_rotated",
+    }
+)
 
 # Cleanup interval and max connection age.
 CLEANUP_INTERVAL_SECONDS = 300  # 5 minutes
@@ -78,9 +80,7 @@ class PushManager:
 
     def __init__(self) -> None:
         self._connections: dict[str, set[AgentConnection]] = defaultdict(set)
-        self._dashboard_connections: dict[uuid.UUID, set[DashboardConnection]] = (
-            defaultdict(set)
-        )
+        self._dashboard_connections: dict[uuid.UUID, set[DashboardConnection]] = defaultdict(set)
         self._cleanup_task: asyncio.Task[None] | None = None
 
     def subscribe(
@@ -125,17 +125,13 @@ class PushManager:
         self._dashboard_connections[tenant_id].add(conn)
         return conn
 
-    def unsubscribe_dashboard(
-        self, tenant_id: uuid.UUID, conn: DashboardConnection
-    ) -> None:
+    def unsubscribe_dashboard(self, tenant_id: uuid.UUID, conn: DashboardConnection) -> None:
         """Remove a dashboard connection when the SSE stream closes."""
         self._dashboard_connections[tenant_id].discard(conn)
         if not self._dashboard_connections[tenant_id]:
             del self._dashboard_connections[tenant_id]
 
-    def push_to_env(
-        self, env: str, data: dict[str, Any], *, tenant_id: uuid.UUID
-    ) -> None:
+    def push_to_env(self, env: str, data: dict[str, Any], *, tenant_id: uuid.UUID) -> None:
         """Fan out an event to connected agents in an environment.
 
         Filters by tenant_id (required). For ``contract_update`` events,
@@ -180,9 +176,7 @@ class PushManager:
                     tenant_id,
                 )
 
-    def push_to_agent(
-        self, agent_id: str, data: dict[str, Any], *, tenant_id: uuid.UUID
-    ) -> None:
+    def push_to_agent(self, agent_id: str, data: dict[str, Any], *, tenant_id: uuid.UUID) -> None:
         """Push an event to all connections for a specific agent (across all envs)."""
         for conns in self._connections.values():
             for conn in conns:
@@ -238,7 +232,8 @@ class PushManager:
         empty_envs: list[str] = []
         for env, conns in self._connections.items():
             stale = {
-                conn for conn in conns
+                conn
+                for conn in conns
                 if conn.is_closed or (now - conn.connected_at) > MAX_CONNECTION_AGE
             }
             removed += len(stale)
@@ -251,10 +246,7 @@ class PushManager:
         # --- dashboard connections ---
         empty_tenants: list[uuid.UUID] = []
         for tid, dash_conns in self._dashboard_connections.items():
-            stale_dash = {
-                dc for dc in dash_conns
-                if (now - dc.connected_at) > MAX_CONNECTION_AGE
-            }
+            stale_dash = {dc for dc in dash_conns if (now - dc.connected_at) > MAX_CONNECTION_AGE}
             removed += len(stale_dash)
             dash_conns.difference_update(stale_dash)
             if not dash_conns:

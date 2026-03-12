@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json as _json
-import logging
 from collections.abc import AsyncGenerator
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
@@ -20,7 +20,7 @@ from edictum_server.auth.dependencies import (
 from edictum_server.db.engine import get_db
 from edictum_server.push.manager import DashboardConnection, PushManager, get_push_manager
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/stream", tags=["stream"])
 
@@ -60,6 +60,12 @@ async def stream(
     """
     # Enforce env scope: API key is always env-scoped, reject mismatches.
     if auth.env and env != auth.env:
+        logger.warning(
+            "sse_env_scope_rejected",
+            agent_id=auth.agent_id or "unknown",
+            auth_env=auth.env,
+            requested_env=env,
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"API key is scoped to '{auth.env}', cannot subscribe to '{env}'.",
@@ -100,6 +106,7 @@ async def stream(
         bundle_name=effective_bundle,
         policy_version=policy_version,
     )
+    logger.info("sse_agent_connected", agent_id=agent_id, env=env, bundle=effective_bundle)
 
     async def event_stream() -> AsyncGenerator[dict[str, str], None]:
         try:
@@ -107,6 +114,7 @@ async def stream(
                 yield event
         finally:
             push.unsubscribe(env, conn)
+            logger.info("sse_agent_disconnected", agent_id=agent_id, env=env)
 
     return EventSourceResponse(event_stream())
 

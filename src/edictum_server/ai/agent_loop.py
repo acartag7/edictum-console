@@ -16,15 +16,16 @@ the same loop could power an MCP server or WebSocket interface.
 from __future__ import annotations
 
 import json
-import logging
 import time
 from collections.abc import AsyncIterator
 from typing import Any
 
+import structlog
+
 from edictum_server.ai.base import AIProvider, StreamEvent, ToolCallChunk
 from edictum_server.ai.tools import ToolContext, execute_tool, get_tool_definitions
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Safety limits to prevent runaway tool calling.
 _DEFAULT_MAX_ITERATIONS = 5
@@ -138,6 +139,12 @@ async def run_agent_loop(
         for tc in tool_calls:
             total_tool_calls += 1
             if total_tool_calls > max_tool_calls:
+                logger.warning(
+                    "tool_call_limit_reached",
+                    tool_name=tc.name,
+                    iteration=_iteration,
+                    max_tool_calls=max_tool_calls,
+                )
                 result = {"error": f"Tool call limit reached ({max_tool_calls})"}
                 duration_ms = 0
             else:

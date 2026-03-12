@@ -2,22 +2,21 @@
 
 from __future__ import annotations
 
-import logging
 from email.message import EmailMessage
 from html import escape
 from typing import Any
 
 import aiosmtplib
+import structlog
 
 from edictum_server.notifications.base import NotificationChannel
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _STATUS_EMOJI = {"approved": "✅", "denied": "❌", "timeout": "⏰"}
 
 
 class EmailChannel(NotificationChannel):
-
     def __init__(
         self,
         *,
@@ -109,14 +108,30 @@ class EmailChannel(NotificationChannel):
         msg["From"] = self._from_address
         msg["To"] = ", ".join(self._to_addresses)
         msg.set_content(html_body, subtype="html")
-        await aiosmtplib.send(
-            msg,
-            hostname=self._smtp_host,
-            port=self._smtp_port,
-            username=self._smtp_user,
-            password=self._smtp_password,
-            start_tls=True,
-        )
+        try:
+            await aiosmtplib.send(
+                msg,
+                hostname=self._smtp_host,
+                port=self._smtp_port,
+                username=self._smtp_user,
+                password=self._smtp_password,
+                start_tls=True,
+            )
+            logger.info(
+                "email_sent",
+                smtp_host=self._smtp_host,
+                recipient_count=len(self._to_addresses),
+                channel=self._name,
+            )
+        except Exception:
+            logger.warning(
+                "email_send_failed",
+                smtp_host=self._smtp_host,
+                smtp_port=self._smtp_port,
+                channel=self._name,
+                exc_info=True,
+            )
+            raise
 
     async def close(self) -> None:
         pass  # No persistent connection

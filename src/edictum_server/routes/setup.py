@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import logging
-
+import structlog
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import func, select, text
@@ -15,7 +14,7 @@ from edictum_server.db.engine import get_db
 from edictum_server.db.models import SigningKey, Tenant, User
 from edictum_server.services.signing_service import generate_signing_keypair
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["setup"])
 

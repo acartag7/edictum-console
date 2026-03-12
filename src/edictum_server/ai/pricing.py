@@ -7,13 +7,13 @@ Graceful degradation: returns None on any error.
 from __future__ import annotations
 
 import asyncio
-import logging
 import time
 from decimal import Decimal
 
 import httpx
+import structlog
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models"
 _CACHE_TTL_SECONDS = 3600  # 1 hour

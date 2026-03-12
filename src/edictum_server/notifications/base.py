@@ -8,11 +8,12 @@ deployments, agent status changes, etc.
 from __future__ import annotations
 
 import fnmatch
-import logging
 from abc import ABC, abstractmethod
 from typing import Any
 
-logger = logging.getLogger(__name__)
+import structlog
+
+logger = structlog.get_logger(__name__)
 
 
 class NotificationChannel(ABC):
@@ -77,9 +78,7 @@ class NotificationManager:
     def __init__(self) -> None:
         self._channels: dict[str, list[NotificationChannel]] = {}
 
-    async def reload(
-        self, channels_by_tenant: dict[str, list[NotificationChannel]]
-    ) -> None:
+    async def reload(self, channels_by_tenant: dict[str, list[NotificationChannel]]) -> None:
         """Replace all channels, closing old ones first."""
         for tenant_channels in self._channels.values():
             for ch in tenant_channels:
@@ -92,11 +91,7 @@ class NotificationManager:
     @property
     def channels(self) -> list[NotificationChannel]:
         """All channels across all tenants (for introspection/shutdown)."""
-        return [
-            ch
-            for tenant_channels in self._channels.values()
-            for ch in tenant_channels
-        ]
+        return [ch for tenant_channels in self._channels.values() for ch in tenant_channels]
 
     def channels_for_tenant(self, tenant_id: str) -> list[NotificationChannel]:
         """Channels belonging to a specific tenant."""
@@ -119,7 +114,9 @@ class NotificationManager:
         channels = self.channels_for_tenant(tenant_id)
         logger.debug(
             "notify_approval_request: tenant=%s channels=%d approval=%s",
-            tenant_id, len(channels), approval_id,
+            tenant_id,
+            len(channels),
+            approval_id,
         )
         for channel in channels:
             if not _matches_filters(
@@ -141,9 +138,7 @@ class NotificationManager:
                     contract_name=contract_name,
                 )
             except Exception:
-                logger.exception(
-                    "Failed to send approval request via %s", channel.name
-                )
+                logger.exception("Failed to send approval request via %s", channel.name)
 
     async def notify_approval_decided(
         self,
@@ -157,7 +152,10 @@ class NotificationManager:
         channels = self.channels_for_tenant(tenant_id)
         logger.debug(
             "notify_approval_decided: tenant=%s channels=%d approval=%s status=%s",
-            tenant_id, len(channels), approval_id, status,
+            tenant_id,
+            len(channels),
+            approval_id,
+            status,
         )
         for channel in channels:
             try:
@@ -168,9 +166,7 @@ class NotificationManager:
                     reason=reason,
                 )
             except Exception:
-                logger.exception(
-                    "Failed to send approval decision via %s", channel.name
-                )
+                logger.exception("Failed to send approval decision via %s", channel.name)
 
 
 def _matches_filters(
@@ -192,9 +188,7 @@ def _matches_filters(
     if envs and env not in envs:
         return False
     agent_patterns = filters.get("agent_patterns")
-    if agent_patterns and not any(
-        fnmatch.fnmatchcase(agent_id, p) for p in agent_patterns
-    ):
+    if agent_patterns and not any(fnmatch.fnmatchcase(agent_id, p) for p in agent_patterns):
         return False
     contract_patterns = filters.get("contract_names")
     if contract_patterns and contract_name:

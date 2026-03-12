@@ -6,13 +6,10 @@ No DB, no IO, no imports from routes. Fully testable in isolation.
 from __future__ import annotations
 
 import fnmatch
-import logging
 from dataclasses import dataclass
 from typing import Any
 
 import yaml
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,20 +198,22 @@ def classify_tools(
         matched = match_tool(tool_name, matchers)
 
         if not matched:
-            results.append({
-                "tool_name": tool_name,
-                "status": "ungoverned",
-                "contract_name": None,
-                "contract_type": None,
-                "mode": None,
-                "bundle_name": None,
-                "source": None,
-                "event_count": event_count,
-                "last_used": last_used,
-                "deny_count": deny_count,
-                "allow_count": allow_count,
-                "observe_count": observe_count,
-            })
+            results.append(
+                {
+                    "tool_name": tool_name,
+                    "status": "ungoverned",
+                    "contract_name": None,
+                    "contract_type": None,
+                    "mode": None,
+                    "bundle_name": None,
+                    "source": None,
+                    "event_count": event_count,
+                    "last_used": last_used,
+                    "deny_count": deny_count,
+                    "allow_count": allow_count,
+                    "observe_count": observe_count,
+                }
+            )
             continue
 
         # Prefer enforce over observe
@@ -226,20 +225,22 @@ def classify_tools(
             governing = matched[0]
             status = "observed"
 
-        results.append({
-            "tool_name": tool_name,
-            "status": status,
-            "contract_name": governing.contract_name,
-            "contract_type": governing.contract_type,
-            "mode": governing.mode,
-            "bundle_name": governing.bundle_name,
-            "source": source,
-            "event_count": event_count,
-            "last_used": last_used,
-            "deny_count": deny_count,
-            "allow_count": allow_count,
-            "observe_count": observe_count,
-        })
+        results.append(
+            {
+                "tool_name": tool_name,
+                "status": status,
+                "contract_name": governing.contract_name,
+                "contract_type": governing.contract_type,
+                "mode": governing.mode,
+                "bundle_name": governing.bundle_name,
+                "source": source,
+                "event_count": event_count,
+                "last_used": last_used,
+                "deny_count": deny_count,
+                "allow_count": allow_count,
+                "observe_count": observe_count,
+            }
+        )
 
     results.sort(key=lambda r: status_order.get(r["status"], 99))
     return results

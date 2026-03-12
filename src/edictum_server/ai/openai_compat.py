@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import AsyncIterator
 from typing import Any
+
+import structlog
 
 from edictum_server.ai.base import (
     AIProvider,
@@ -15,14 +16,14 @@ from edictum_server.ai.base import (
     ToolDefinition,
 )
 
-logger = logging.getLogger(__name__)
-
 try:
     import openai  # type: ignore[import-not-found]
 
     _HAS_OPENAI = True
 except ImportError:
     _HAS_OPENAI = False
+
+logger = structlog.get_logger(__name__)
 
 DEFAULT_OPENAI_MODEL = "gpt-5-mini"
 DEFAULT_OPENROUTER_MODEL = "qwen/qwen3-4b:free"
@@ -187,6 +188,13 @@ class OpenAICompatibleProvider(AIProvider):
                     try:
                         arguments = json.loads(raw_args) if raw_args else {}
                     except json.JSONDecodeError:
+                        logger.warning(
+                            "tool_call_json_decode_error",
+                            provider=self._provider_name,
+                            model=self._model,
+                            tool_name=buf["name"],
+                            raw_length=len(raw_args),
+                        )
                         arguments = {"_raw": raw_args}
                     yield StreamEvent(
                         tool_call=ToolCallChunk(

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import uuid
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from nacl.exceptions import BadSignatureError
@@ -25,7 +25,7 @@ from edictum_server.services.notification_service import (
     get_channel_config,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/discord", tags=["discord"])
 
@@ -79,6 +79,7 @@ async def discord_interaction(
             break
 
     if matched_channel is None:
+        logger.warning("discord_signature_verification_failed")
         return Response(status_code=401)
 
     try:
@@ -144,6 +145,13 @@ async def _handle_component(
     # if there is any mismatch (tampered key, wrong channel), reject silently
     # with the same "Approval Expired" response to avoid leaking existence.
     if tenant_id != db_channel.tenant_id:
+        logger.warning(
+            "discord_tenant_mismatch",
+            channel_id=channel_id,
+            resolved_tenant_id=str(tenant_id),
+            channel_tenant_id=str(db_channel.tenant_id),
+            approval_id=str(approval_id),
+        )
         return JSONResponse(
             {
                 "type": 7,
@@ -180,6 +188,13 @@ async def _handle_component(
         )
 
     await db.commit()
+    logger.info(
+        "discord_approval_decided",
+        approval_id=str(approval_id),
+        action=action,
+        decided_by=decided_by,
+        tenant_id=str(tenant_id),
+    )
 
     # Push SSE events
     push: PushManager = request.app.state.push_manager

@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import logging
 import uuid
 from typing import Any
 
+import structlog
 import yaml
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -24,12 +24,13 @@ from edictum_server.db.models import (
 from edictum_server.push.manager import PushManager
 from edictum_server.services.signing_service import sign_bundle
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 _MAX_VERSION_RETRIES = 5
 
 
 async def assemble_bundle(
-    db: AsyncSession, composition: BundleComposition,
+    db: AsyncSession,
+    composition: BundleComposition,
 ) -> tuple[bytes, list[dict[str, Any]]]:
     """Assemble a BundleComposition into valid ContractBundle YAML."""
     result = await db.execute(
@@ -48,9 +49,7 @@ async def assemble_bundle(
 
     for item, contract in result.all():
         if contract.tenant_id != composition.tenant_id:
-            raise ValueError(
-                f"Contract {contract.contract_id} belongs to a different tenant"
-            )
+            raise ValueError(f"Contract {contract.contract_id} belongs to a different tenant")
         cid = contract.contract_id
         if cid in seen_ids:
             cid = f"{cid}.obs"
@@ -64,17 +63,21 @@ async def assemble_bundle(
         elif "mode" not in contract_def:
             contract_def["mode"] = composition.defaults_mode
         contracts_yaml.append(contract_def)
-        snapshot.append({
-            "contract_id": contract.contract_id, "version": contract.version,
-            "mode": contract_def.get("mode"),
-            "shadow": cid != contract.contract_id,
-        })
+        snapshot.append(
+            {
+                "contract_id": contract.contract_id,
+                "version": contract.version,
+                "mode": contract_def.get("mode"),
+                "shadow": cid != contract.contract_id,
+            }
+        )
 
     if not contracts_yaml:
         raise ValueError("Composition has no enabled contracts")
 
     bundle_doc: dict[str, Any] = {
-        "apiVersion": "edictum/v1", "kind": "ContractBundle",
+        "apiVersion": "edictum/v1",
+        "kind": "ContractBundle",
         "metadata": {"name": composition.name},
         "defaults": {"mode": composition.defaults_mode},
         "contracts": contracts_yaml,
@@ -91,17 +94,18 @@ async def assemble_bundle(
 
 
 async def preview_composition(
-    db: AsyncSession, composition: BundleComposition,
+    db: AsyncSession,
+    composition: BundleComposition,
 ) -> dict[str, Any]:
     """Assemble and return YAML without creating any rows."""
     validation_errors: list[str] = []
     try:
         yaml_bytes, snapshot = await assemble_bundle(db, composition)
     except ValueError as exc:
-        return {"yaml_content": "", "contracts_count": 0,
-                "validation_errors": [str(exc)]}
+        return {"yaml_content": "", "contracts_count": 0, "validation_errors": [str(exc)]}
     try:
         from edictum import load_bundle_string  # type: ignore[import-untyped, attr-defined]
+
         load_bundle_string(yaml_bytes.decode())
     except ImportError:
         pass
@@ -115,8 +119,12 @@ async def preview_composition(
 
 
 async def deploy_composition(
-    db: AsyncSession, tenant_id: uuid.UUID, composition: BundleComposition,
-    env: str, deployed_by: str, signing_secret: bytes,
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    composition: BundleComposition,
+    env: str,
+    deployed_by: str,
+    signing_secret: bytes,
     push_manager: PushManager,
 ) -> dict[str, Any]:
     """Assemble, sign, create Bundle + Deployment, and push SSE."""
@@ -124,9 +132,12 @@ async def deploy_composition(
     revision_hash = hashlib.sha256(yaml_bytes).hexdigest()
 
     key_result = await db.execute(
-        select(SigningKey).where(
-            SigningKey.tenant_id == tenant_id, SigningKey.active.is_(True),
-        ).limit(1)
+        select(SigningKey)
+        .where(
+            SigningKey.tenant_id == tenant_id,
+            SigningKey.active.is_(True),
+        )
+        .limit(1)
     )
     signing_key_row = key_result.scalar_one_or_none()
     if signing_key_row is None:
@@ -134,21 +145,28 @@ async def deploy_composition(
 
     signature = sign_bundle(
         private_key_encrypted=signing_key_row.private_key_encrypted,
-        secret=signing_secret, data=yaml_bytes,
+        secret=signing_secret,
+        data=yaml_bytes,
     )
 
     for attempt in range(_MAX_VERSION_RETRIES):
         result = await db.execute(
             select(Bundle.version)
             .where(Bundle.tenant_id == tenant_id, Bundle.name == composition.name)
-            .order_by(Bundle.version.desc()).limit(1)
+            .order_by(Bundle.version.desc())
+            .limit(1)
         )
         next_version = (result.scalar_one_or_none() or 0) + 1
         bundle = Bundle(
-            tenant_id=tenant_id, name=composition.name, version=next_version,
-            revision_hash=revision_hash, yaml_bytes=yaml_bytes,
-            signature=signature, uploaded_by=deployed_by,
-            composition_id=composition.id, composition_snapshot=snapshot,
+            tenant_id=tenant_id,
+            name=composition.name,
+            version=next_version,
+            revision_hash=revision_hash,
+            yaml_bytes=yaml_bytes,
+            signature=signature,
+            uploaded_by=deployed_by,
+            composition_id=composition.id,
+            composition_snapshot=snapshot,
         )
         try:
             async with db.begin_nested():
@@ -156,9 +174,13 @@ async def deploy_composition(
                 await db.flush()
             break
         except IntegrityError:
-            logger.warning("Bundle version conflict: %s v%d (%d/%d)",
-                           composition.name, next_version, attempt + 1,
-                           _MAX_VERSION_RETRIES)
+            logger.warning(
+                "Bundle version conflict: %s v%d (%d/%d)",
+                composition.name,
+                next_version,
+                attempt + 1,
+                _MAX_VERSION_RETRIES,
+            )
             db.expire_all()
     else:
         raise RuntimeError(
@@ -167,27 +189,38 @@ async def deploy_composition(
         )
 
     deployment = Deployment(
-        tenant_id=tenant_id, env=env, bundle_name=composition.name,
-        bundle_version=next_version, deployed_by=deployed_by,
+        tenant_id=tenant_id,
+        env=env,
+        bundle_name=composition.name,
+        bundle_version=next_version,
+        deployed_by=deployed_by,
     )
     db.add(deployment)
     await db.flush()
 
     public_key_hex = signing_key_row.public_key.hex()
     contract_data = {
-        "type": "contract_update", "bundle_name": composition.name,
-        "version": next_version, "revision_hash": revision_hash,
-        "signature": signature.hex(), "public_key": public_key_hex,
+        "type": "contract_update",
+        "bundle_name": composition.name,
+        "version": next_version,
+        "revision_hash": revision_hash,
+        "signature": signature.hex(),
+        "public_key": public_key_hex,
         "yaml_bytes": base64.b64encode(yaml_bytes).decode(),
     }
     push_manager.push_to_env(env, contract_data, tenant_id=tenant_id)
     push_manager.push_to_dashboard(tenant_id, contract_data)
-    push_manager.push_to_dashboard(tenant_id, {
-        "type": "composition_changed",
-        "composition_name": composition.name,
-        "bundle_version": next_version,
-    })
+    push_manager.push_to_dashboard(
+        tenant_id,
+        {
+            "type": "composition_changed",
+            "composition_name": composition.name,
+            "bundle_version": next_version,
+        },
+    )
     return {
-        "bundle_name": composition.name, "bundle_version": next_version,
-        "contracts_assembled": snapshot, "deployment_id": deployment.id,
+        "bundle_name": composition.name,
+        "bundle_version": next_version,
+        "contracts_assembled": snapshot,
+        "deployment_id": deployment.id,
     }

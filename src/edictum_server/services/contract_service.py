@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import re
 import uuid
 from typing import Any
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +17,7 @@ from edictum_server.db.models import (
     Contract,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _CONTRACT_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 _VALID_TYPES = {"pre", "post", "session", "sandbox"}

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from typing import Any
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +24,7 @@ from edictum_server.schemas.notifications import (
 from edictum_server.services import notification_service
 from edictum_server.services.notification_service import get_channel_config
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/notifications/channels",
@@ -148,6 +148,11 @@ async def create_channel(
     await db.commit()
     await db.refresh(channel)
     await _reload_manager(request, db)
+    logger.info(
+        "notification_channel_created",
+        channel_type=body.channel_type,
+        channel_name=body.name,
+    )
     return _to_response(channel, secret=secret)
 
 
@@ -194,6 +199,11 @@ async def update_channel(
     await db.commit()
     await db.refresh(channel)
     await _reload_manager(request, db)
+    logger.info(
+        "notification_channel_updated",
+        channel_id=str(channel_id),
+        channel_type=channel.channel_type,
+    )
     return _to_response(channel, secret=secret)
 
 
@@ -213,6 +223,7 @@ async def delete_channel(
         )
     await db.commit()
     await _reload_manager(request, db)
+    logger.info("notification_channel_deleted", channel_id=str(channel_id))
 
 
 @router.post("/{channel_id}/test", response_model=TestResult)

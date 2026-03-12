@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import html
 import json
-import logging
 from typing import Any
 
 import redis.asyncio as aioredis
+import structlog
 
 from edictum_server.notifications.base import NotificationChannel
 from edictum_server.notifications.telegram_client import TelegramClient
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _STATUS_EMOJI = {"approved": "\u2705", "denied": "\u274c", "timeout": "\u23f0"}
 
@@ -78,8 +78,13 @@ class TelegramChannel(NotificationChannel):
         contract_name: str | None = None,  # noqa: ARG002
     ) -> None:
         text = _format_approval(
-            agent_id, tool_name, tool_args, message, env,
-            timeout_seconds, timeout_effect,
+            agent_id,
+            tool_name,
+            tool_args,
+            message,
+            env,
+            timeout_seconds,
+            timeout_effect,
         )
         reply_markup = {
             "inline_keyboard": [
@@ -90,12 +95,12 @@ class TelegramChannel(NotificationChannel):
             ],
         }
         result = await self.client.send_message(
-            chat_id=self._chat_id, text=text, reply_markup=reply_markup,
+            chat_id=self._chat_id,
+            text=text,
+            reply_markup=reply_markup,
         )
         _SEVEN_DAYS = 86400 * 7
-        msg_data = json.dumps(
-            {"chat_id": self._chat_id, "message_id": result["message_id"]}
-        )
+        msg_data = json.dumps({"chat_id": self._chat_id, "message_id": result["message_id"]})
         await self._redis.set(self._msg_key(approval_id), msg_data, ex=_SEVEN_DAYS)
         await self._redis.set(self._tenant_key(approval_id), tenant_id, ex=_SEVEN_DAYS)
 
@@ -150,16 +155,22 @@ class TelegramChannel(NotificationChannel):
                 )
             except Exception:
                 logger.exception(
-                    "Failed to update expired message for %s", item.get("id"),
+                    "Failed to update expired message for %s",
+                    item.get("id"),
                 )
 
     async def update_decision(
-        self, approval_id: str, status: str, decided_by: str | None,
+        self,
+        approval_id: str,
+        status: str,
+        decided_by: str | None,
     ) -> None:
         """Edit the original message to reflect the decision."""
         await self.send_approval_decided(
-            approval_id=approval_id, status=status,
-            decided_by=decided_by, reason=None,
+            approval_id=approval_id,
+            status=status,
+            decided_by=decided_by,
+            reason=None,
         )
 
     async def register_webhook(self, base_url: str) -> None:
@@ -183,12 +194,15 @@ def _format_approval(
 ) -> str:
     # Escape all user-controlled values to prevent HTML injection (#27)
     lines = [
-        "<b>HITL Approval Request</b>", "",
+        "<b>HITL Approval Request</b>",
+        "",
         f"<b>Agent:</b> {html.escape(agent_id)}",
         f"<b>Tool:</b> {html.escape(tool_name)}",
         f"<b>Env:</b> {html.escape(env)}",
         f"<b>Timeout:</b> {timeout_seconds}s ({html.escape(timeout_effect)} on timeout)",
-        "", "<b>Message:</b>", html.escape(message),
+        "",
+        "<b>Message:</b>",
+        html.escape(message),
     ]
     if tool_args is not None:
         args_str = json.dumps(tool_args, indent=2)[:500]

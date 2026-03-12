@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import json
-import logging
 from collections.abc import AsyncIterator
 from typing import Any
+
+import structlog
 
 from edictum_server.ai.base import (
     AIProvider,
@@ -15,14 +16,14 @@ from edictum_server.ai.base import (
     ToolDefinition,
 )
 
-logger = logging.getLogger(__name__)
-
 try:
     import anthropic  # type: ignore[import-not-found]
 
     _HAS_ANTHROPIC = True
 except ImportError:
     _HAS_ANTHROPIC = False
+
+logger = structlog.get_logger(__name__)
 
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
@@ -141,6 +142,13 @@ class AnthropicProvider(AIProvider):
                         try:
                             arguments = json.loads(raw_json) if raw_json else {}
                         except json.JSONDecodeError:
+                            logger.warning(
+                                "tool_call_json_decode_error",
+                                provider="anthropic",
+                                model=self._model,
+                                tool_name=current_tool_name,
+                                raw_length=len(raw_json),
+                            )
                             arguments = {"_raw": raw_json}
                         yield StreamEvent(
                             tool_call=ToolCallChunk(
