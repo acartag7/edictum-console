@@ -3797,7 +3797,7 @@
           "ai"
         ],
         "summary": "Assist",
-        "description": "Stream AI-generated contract suggestions via SSE.",
+        "description": "Stream AI-generated contract suggestions via SSE.\n\nUses the agentic tool-calling loop: the LLM can call validate_contract\nand evaluate_contract to self-check its output before presenting to\nthe user. Pre-fetched resources (templates, existing contracts, agent\ntool usage) are injected as context at conversation start.",
         "operationId": "assist_api_v1_contracts_assist_post",
         "requestBody": {
           "content": {
