@@ -4,11 +4,10 @@
  */
 
 import { useState } from "react"
-import { Sparkles, Send, Settings } from "lucide-react"
+import { Sparkles, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AiChatPanel } from "./ai-chat-panel"
 
 const SUGGESTIONS = [
