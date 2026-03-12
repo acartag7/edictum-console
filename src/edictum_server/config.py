@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 from functools import lru_cache
 from urllib.parse import urlparse
 
+import structlog
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class Settings(BaseSettings):
@@ -79,6 +79,10 @@ class Settings(BaseSettings):
 
     # Runtime environment
     env_name: str = "development"
+
+    # Logging
+    log_level: str = "INFO"
+    log_format: str = "auto"  # "auto" (JSON in prod, pretty in dev), "json", "pretty"
 
     # Telegram env-var config removed — all notification channels
     # are now DB-configured via Settings → Notifications in the dashboard.

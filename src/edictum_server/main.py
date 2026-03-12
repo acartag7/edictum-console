@@ -2,20 +2,37 @@
 
 from __future__ import annotations
 
-import logging
-import os
-from pathlib import Path
+# Configure structured logging BEFORE any other module instantiates loggers.
+from edictum_server.config import get_settings as _get_settings_early
 
-from fastapi import FastAPI, Request
-from fastapi.exceptions import HTTPException as StarletteHTTPException
-from fastapi.exceptions import RequestValidationError
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
+_early = _get_settings_early()
+_json = _early.log_format == "json" or (
+    _early.log_format == "auto" and _early.env_name == "production"
+)
 
-from edictum_server.config import get_settings
-from edictum_server.lifespan import lifespan
-from edictum_server.routes import (
+from edictum_server.logging_config import configure_logging  # noqa: E402
+
+configure_logging(log_level=_early.log_level, json_output=_json)
+
+import os  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+import structlog  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.exceptions import HTTPException as StarletteHTTPException  # noqa: E402
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import (  # noqa: E402
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+)
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+from edictum_server.config import get_settings  # noqa: E402
+from edictum_server.lifespan import lifespan  # noqa: E402
+from edictum_server.routes import (  # noqa: E402
     agent_registrations,
     agents,
     ai,
@@ -42,10 +59,15 @@ from edictum_server.routes import (
     telegram,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _settings = get_settings()
 _is_production = _settings.env_name == "production"
+
+# Request context middleware — must be registered before app creation
+# so it's the innermost middleware (binds request_id for all handlers).
+from edictum_server.middleware.request_context import RequestContextMiddleware  # noqa: E402
+
 app = FastAPI(
     title="Edictum Console",
     description="Self-hostable agent operations console -- runtime governance for AI agents",
@@ -55,6 +77,7 @@ app = FastAPI(
     redoc_url=None if _is_production else "/redoc",
     openapi_url=None if _is_production else "/openapi.json",
 )
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o.strip() for o in _settings.cors_origins.split(",") if o.strip()],

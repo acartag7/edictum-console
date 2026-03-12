@@ -12,13 +12,12 @@ because they don't rely on ambient cookies.  External webhook callbacks
 
 from __future__ import annotations
 
-import logging
-
+import structlog
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _MUTATING_METHODS = frozenset({"POST", "PUT", "DELETE", "PATCH"})
 
@@ -37,9 +36,7 @@ _EXEMPT_PREFIXES = (
 class CSRFMiddleware(BaseHTTPMiddleware):
     """Require ``X-Requested-With`` on cookie-auth mutating requests."""
 
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.method not in _MUTATING_METHODS:
             return await call_next(request)
 
@@ -62,6 +59,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
 
         # Cookie-auth mutating request — require custom header
         if not request.headers.get("x-requested-with"):
+            client_ip = request.client.host if request.client else "unknown"
+            logger.warning("csrf_rejected", method=request.method, path=path, client_ip=client_ip)
             from edictum_server.security.headers import _HEADERS as _SECURITY_HEADERS
 
             resp = JSONResponse(

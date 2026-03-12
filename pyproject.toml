@@ -24,6 +24,7 @@ dependencies = [
     "email-validator>=2.0",
     "aiosmtplib>=2.0,<3.0",
     "edictum[yaml]>=0.11.3",
+    "structlog>=24.0",
 ]
 
 [project.optional-dependencies]

@@ -10,13 +10,13 @@ Returns 413 Request Entity Too Large with a JSON error body when exceeded.
 from __future__ import annotations
 
 import json
-import logging
 
+import structlog
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Limits in bytes
 _4_KB = 4_096
@@ -115,6 +115,13 @@ class BodySizeLimitMiddleware:
             except (ValueError, OverflowError):
                 content_length = 0
             if content_length > limit:
+                logger.warning(
+                    "body_size_rejected_header",
+                    path=path,
+                    method=method,
+                    content_length=content_length,
+                    limit_bytes=limit,
+                )
                 response = _make_413_response(limit)
                 await response(scope, receive, send)
                 return
@@ -138,6 +145,13 @@ class BodySizeLimitMiddleware:
                 bytes_received += len(body)
                 if bytes_received > limit:
                     limit_exceeded = True
+                    logger.warning(
+                        "body_size_rejected_streaming",
+                        path=path,
+                        method=method,
+                        bytes_received=bytes_received,
+                        limit_bytes=limit,
+                    )
                     raise _BodyTooLargeError(limit)
             return message
 

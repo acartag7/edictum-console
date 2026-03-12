@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 from dataclasses import dataclass
 from typing import Literal
 
+import structlog
 from fastapi import Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,7 +16,7 @@ from edictum_server.auth.provider import DashboardAuthContext
 from edictum_server.db.engine import get_db
 from edictum_server.db.models import ApiKey
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,13 +81,20 @@ async def require_api_key(
             detail="Invalid or revoked API key.",
         )
 
-    return AuthContext(
+    ctx = AuthContext(
         tenant_id=api_key.tenant_id,
         auth_type="api_key",
         env=api_key.env,
         agent_id=x_edictum_agent_id,
         api_key_prefix=api_key.key_prefix,
     )
+    structlog.contextvars.bind_contextvars(
+        tenant_id=str(ctx.tenant_id),
+        auth_type="api_key",
+        agent_id=x_edictum_agent_id or "unknown",
+        env=api_key.env,
+    )
+    return ctx
 
 
 async def require_dashboard_auth(
@@ -95,14 +102,20 @@ async def require_dashboard_auth(
 ) -> AuthContext:
     """Authenticate a dashboard (human) request via session cookie."""
     auth_provider = request.app.state.auth_provider
-    ctx: DashboardAuthContext = await auth_provider.authenticate(request)
-    return AuthContext(
-        tenant_id=ctx.tenant_id,
+    dash_ctx: DashboardAuthContext = await auth_provider.authenticate(request)
+    auth = AuthContext(
+        tenant_id=dash_ctx.tenant_id,
         auth_type="dashboard",
-        user_id=str(ctx.user_id),
-        email=ctx.email,
-        is_admin=ctx.is_admin,
+        user_id=str(dash_ctx.user_id),
+        email=dash_ctx.email,
+        is_admin=dash_ctx.is_admin,
     )
+    structlog.contextvars.bind_contextvars(
+        tenant_id=str(auth.tenant_id),
+        auth_type="dashboard",
+        user_id=str(dash_ctx.user_id),
+    )
+    return auth
 
 
 async def require_admin(

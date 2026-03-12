@@ -6,10 +6,10 @@ by tenant_id, and returns a dict ready for NotificationManager.reload().
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 
 import redis.asyncio as aioredis
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +17,7 @@ from edictum_server.db.models import NotificationChannel as ChannelModel
 from edictum_server.notifications.base import NotificationChannel
 from edictum_server.services.notification_service import get_channel_config
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def load_db_channels(
@@ -56,9 +56,7 @@ async def load_db_channels(
     return dict(channels_by_tenant)
 
 
-async def _register_webhook_if_telegram(
-    ch: NotificationChannel, base_url: str
-) -> None:
+async def _register_webhook_if_telegram(ch: NotificationChannel, base_url: str) -> None:
     """Register Telegram webhook so callback queries reach our endpoint.
 
     NOTE: Telegram's Bot API requires an HTTPS URL for webhooks. Interactive

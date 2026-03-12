@@ -6,16 +6,16 @@ for existing tenants, and periodic AI usage log cleanup.
 
 from __future__ import annotations
 
-import logging
 from datetime import UTC, datetime, timedelta
 
 import sqlalchemy as sa
+import structlog
 from sqlalchemy import func, select
 
 from edictum_server.config import Settings, get_settings
 from edictum_server.db.engine import async_session_factory
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def bootstrap_admin() -> None:

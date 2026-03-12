@@ -17,16 +17,16 @@ Security:
 
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from importlib import resources as importlib_resources
 
+import structlog
 import yaml
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 # Cache for static template content (loaded once, never changes at runtime).
 _templates_cache: dict[str, str] = {}

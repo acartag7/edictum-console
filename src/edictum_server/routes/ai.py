@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 from collections.abc import AsyncIterator
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +29,7 @@ from edictum_server.services.ai_service import (
     upsert_ai_config,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 router = APIRouter(tags=["ai"])
 
 

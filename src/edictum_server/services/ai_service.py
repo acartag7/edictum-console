@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 import uuid
 
+import structlog
 from nacl.secret import SecretBox
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from edictum_server.db.models import TenantAiConfig
 from edictum_server.security.validators import ValidationError as SecurityError
 from edictum_server.security.validators import validate_url
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def get_ai_config(

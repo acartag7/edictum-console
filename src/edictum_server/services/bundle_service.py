@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import uuid
 
+import structlog
 import yaml
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import Bundle, Deployment
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _MAX_VERSION_RETRIES = 5
 

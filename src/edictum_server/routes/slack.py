@@ -6,11 +6,11 @@ import asyncio
 import hashlib
 import hmac
 import json
-import logging
 import time
 import uuid
 from urllib.parse import parse_qs
 
+import structlog
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +25,7 @@ from edictum_server.services.notification_service import (
     get_channel_config,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/slack", tags=["slack"])
 

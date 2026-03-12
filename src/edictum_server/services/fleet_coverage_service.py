@@ -5,11 +5,11 @@ Separated from coverage_service.py to keep files under 200 lines.
 
 from __future__ import annotations
 
-import logging
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import structlog
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +25,7 @@ from edictum_server.services.coverage_matching import classify_tools, manifest_t
 from edictum_server.services.coverage_queries import get_matchers_for_env
 from edictum_server.services.manifest_service import get_agent_manifest
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 async def compute_fleet_coverage(
@@ -122,6 +122,11 @@ async def compute_fleet_coverage(
             if manifest:
                 matchers = manifest_to_matchers(manifest)
                 source = "local"
+                logger.info(
+                    "coverage_fallback_to_local",
+                    agent_id=agent_id,
+                    agent_env=agent_env,
+                )
         classified = classify_tools(tool_rows, matchers, source=source)
         enforced = sum(1 for t in classified if t["status"] == "enforced")
         observed = sum(1 for t in classified if t["status"] == "observed")

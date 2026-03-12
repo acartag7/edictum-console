@@ -7,10 +7,10 @@ and the monitor that restarts crashed workers.
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 import sqlalchemy as sa
+import structlog
 from fastapi import FastAPI
 
 from edictum_server.db.engine import async_session_factory, get_engine
@@ -18,13 +18,14 @@ from edictum_server.notifications.base import NotificationManager
 from edictum_server.push.manager import PushManager
 from edictum_server.services.approval_service import expire_approvals
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _PARTITION_INTERVAL = 24 * 60 * 60  # 24 hours
 
 
 async def _partition_worker() -> None:
     """Ensure event partitions exist for the next 3 months, once per day."""
+    structlog.contextvars.bind_contextvars(worker="partition")
     while True:
         try:
             engine = get_engine()
@@ -41,6 +42,7 @@ async def _partition_worker() -> None:
 
 async def _approval_timeout_worker(app: FastAPI) -> None:
     """Periodically expire pending approvals past their deadline."""
+    structlog.contextvars.bind_contextvars(worker="approval_timeout")
     while True:
         try:
             async with async_session_factory()() as db:
@@ -78,6 +80,7 @@ async def _approval_timeout_worker(app: FastAPI) -> None:
 
 async def _worker_monitor(app: FastAPI) -> None:
     """Restart crashed background workers every 60 seconds."""
+    structlog.contextvars.bind_contextvars(worker="monitor")
     while True:
         await asyncio.sleep(60)
         try:

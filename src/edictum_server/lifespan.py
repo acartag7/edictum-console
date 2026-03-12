@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
+import structlog
 from fastapi import FastAPI
 
 from edictum_server.config import get_settings
@@ -28,7 +28,7 @@ from edictum_server.workers import (
     _worker_monitor,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager

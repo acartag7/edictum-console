@@ -7,11 +7,11 @@ Fleet-level coverage lives in fleet_coverage_service.py.
 
 from __future__ import annotations
 
-import logging
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,7 +26,7 @@ from edictum_server.services.coverage_matching import classify_tools, manifest_t
 from edictum_server.services.coverage_queries import get_matchers_for_env, get_tool_rows
 from edictum_server.services.manifest_service import get_agent_manifest
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 COVERAGE_CACHE_TTL = 60
 

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncIterator
 
 from edictum_server.ai.base import AIProvider, AiUsageResult
-
-logger = logging.getLogger(__name__)
 
 try:
     import ollama as _ollama_lib  # type: ignore[import-not-found]

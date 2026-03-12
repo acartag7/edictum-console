@@ -5,15 +5,16 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import logging
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
+import structlog
 
 from edictum_server.notifications.base import NotificationChannel
 from edictum_server.security.safe_transport import SafeTransport
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 class WebhookChannel(NotificationChannel):
@@ -98,7 +99,23 @@ class WebhookChannel(NotificationChannel):
         if self._secret:
             sig = hmac.new(self._secret.encode(), body.encode(), hashlib.sha256).hexdigest()
             headers["X-Edictum-Signature"] = f"sha256={sig}"
-        await self._client.post(self._url, content=body, headers=headers)
+        domain = urlparse(self._url).hostname or "unknown"
+        try:
+            resp = await self._client.post(self._url, content=body, headers=headers)
+            if resp.status_code >= 400:
+                logger.warning(
+                    "webhook_delivery_failed",
+                    domain=domain,
+                    status_code=resp.status_code,
+                    channel=self._name,
+                )
+        except httpx.HTTPError:
+            logger.warning(
+                "webhook_delivery_error",
+                domain=domain,
+                channel=self._name,
+                exc_info=True,
+            )
 
     async def close(self) -> None:
         await self._client.aclose()

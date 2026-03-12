@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
 import httpx
 import redis.asyncio as aioredis
+import structlog
 
 from edictum_server.notifications.base import NotificationChannel
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 _STATUS_EMOJI = {"approved": "\u2705", "denied": "\u274c", "timeout": "\u23f0"}
 
@@ -189,7 +189,8 @@ class SlackAppChannel(NotificationChannel):
             if not data.get("ok"):
                 logger.warning(
                     "Slack chat.update failed for %s: %s",
-                    approval_id, data.get("error", "unknown"),
+                    approval_id,
+                    data.get("error", "unknown"),
                 )
         else:
             fallback = f"Request {status.capitalize()}: {body}"
@@ -202,7 +203,8 @@ class SlackAppChannel(NotificationChannel):
             if not data.get("ok"):
                 logger.warning(
                     "Slack fallback postMessage failed for %s: %s",
-                    approval_id, data.get("error", "unknown"),
+                    approval_id,
+                    data.get("error", "unknown"),
                 )
 
     async def update_expired(self, expired_items: list[dict[str, Any]]) -> None:
@@ -242,13 +244,17 @@ class SlackAppChannel(NotificationChannel):
                 if not data.get("ok"):
                     logger.warning(
                         "Slack chat.update failed for expired %s: %s",
-                        approval_id, data.get("error", "unknown"),
+                        approval_id,
+                        data.get("error", "unknown"),
                     )
             except Exception:
                 logger.exception("Failed to update expired Slack message for %s", item.get("id"))
 
     async def update_decision(
-        self, approval_id: str, status: str, decided_by: str | None,
+        self,
+        approval_id: str,
+        status: str,
+        decided_by: str | None,
     ) -> None:
         """Edit the original message to reflect the decision."""
         await self.send_approval_decided(

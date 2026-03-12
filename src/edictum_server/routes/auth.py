@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-import logging
-
 import bcrypt
 import redis.asyncio as aioredis
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -18,7 +17,7 @@ from edictum_server.rate_limit import RateLimitExceeded, check_rate_limit
 from edictum_server.redis.client import get_redis
 from edictum_server.services.auth_service import find_user_by_email
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -73,6 +72,7 @@ async def login(
     try:
         await check_rate_limit(redis, rate_key)
     except RateLimitExceeded as exc:
+        logger.warning("login_rate_limited", client_ip=client_ip)
         return JSONResponse(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             content={"detail": "Too many login attempts. Please try again later."},
@@ -87,6 +87,7 @@ async def login(
     password_valid = provider.verify_password(body.password, password_hash)
 
     if user is None or not password_valid:
+        logger.warning("login_failed", client_ip=client_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid email or password.",
@@ -98,6 +99,8 @@ async def login(
         email=user.email,
         is_admin=user.is_admin,
     )
+
+    logger.info("login_success", user_id=str(user.id), tenant_id=str(user.tenant_id))
 
     response = JSONResponse(
         content={"message": "Logged in."},

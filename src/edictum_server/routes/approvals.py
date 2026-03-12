@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 import uuid
 
 import redis.asyncio as aioredis
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -30,7 +30,7 @@ from edictum_server.schemas.approvals import (
 )
 from edictum_server.services import approval_service
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 
 def _fire(coro: object) -> None:
