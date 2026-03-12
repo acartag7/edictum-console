@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useSearchParams, useLocation } from "react-router"
-import { Plus, Upload, Search, AlertCircle } from "lucide-react"
+import {
+  Plus, Upload, Search, AlertCircle,
+  ShieldCheck, Eye, Timer, Box,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,15 +13,50 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { listContracts, type LibraryContractSummary } from "@/lib/api/contracts"
 import { subscribeDashboardSSE } from "@/lib/sse"
+import { AiGeneratorHero } from "./ai-generator-hero"
 import { ContractCard } from "./contract-card"
 import { ContractEditorDialog, type FromEventContext } from "./contract-editor-dialog"
 import { ImportDialog } from "./import-dialog"
 import { DeleteDialog } from "./delete-dialog"
 import { ContractDetailSheet } from "./contract-detail-sheet"
-import { TemplatesSection } from "./templates-section"
 import { useLibraryActions } from "./use-library-actions"
 
 const TYPE_OPTIONS = ["all", "pre", "post", "session", "sandbox"] as const
+
+const TYPE_SECTIONS = [
+  {
+    type: "pre",
+    label: "Preconditions",
+    description: "Checked before a tool executes. Block dangerous calls before they happen.",
+    icon: ShieldCheck,
+    color: "text-amber-600 dark:text-amber-400",
+    borderColor: "border-amber-500/40",
+  },
+  {
+    type: "post",
+    label: "Postconditions",
+    description: "Checked after execution. Detect PII, credentials, or errors in output.",
+    icon: Eye,
+    color: "text-emerald-600 dark:text-emerald-400",
+    borderColor: "border-emerald-500/40",
+  },
+  {
+    type: "session",
+    label: "Session Limits",
+    description: "Enforce limits across an entire session. Rate limiting and tool caps.",
+    icon: Timer,
+    color: "text-blue-600 dark:text-blue-400",
+    borderColor: "border-blue-500/40",
+  },
+  {
+    type: "sandbox",
+    label: "Sandboxes",
+    description: "Boundary enforcement. Restrict file paths, commands, and domains.",
+    icon: Box,
+    color: "text-orange-600 dark:text-orange-400",
+    borderColor: "border-orange-500/40",
+  },
+] as const
 
 export function LibraryTab() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -41,7 +79,7 @@ export function LibraryTab() {
         search: search || undefined,
         type: typeFilter || undefined,
       })
-      if (gen !== fetchGenRef.current) return // stale response
+      if (gen !== fetchGenRef.current) return
       setContracts(data)
     } catch (e) {
       if (gen !== fetchGenRef.current) return
@@ -79,12 +117,10 @@ export function LibraryTab() {
   // "Create from Event" context
   const [fromEvent, setFromEvent] = useState<FromEventContext | undefined>()
 
-  // "Create from Event" — run once on mount
   useEffect(() => {
     if (searchParams.get("new") === "true") {
       const toolName = searchParams.get("from_tool")
       const verdict = searchParams.get("from_verdict")
-      // Tool args come from React Router state (not URL) to avoid leaking sensitive data
       const stateArgs = (location.state as { fromArgs?: Record<string, unknown> } | null)?.fromArgs
       if (toolName && verdict) {
         setFromEvent({ tool_name: toolName, verdict, tool_args: stateArgs })
@@ -109,15 +145,25 @@ export function LibraryTab() {
     })
   }
 
+  // Group contracts by type
+  const grouped = useMemo(() => {
+    const map: Record<string, LibraryContractSummary[]> = {}
+    for (const c of contracts) {
+      ;(map[c.type] ??= []).push(c)
+    }
+    return map
+  }, [contracts])
+
+  // Which sections have contracts (for filtered view)
+  const activeSections = typeFilter
+    ? TYPE_SECTIONS.filter((s) => s.type === typeFilter)
+    : TYPE_SECTIONS.filter((s) => (grouped[s.type]?.length ?? 0) > 0)
+
   return (
-    <div className="space-y-4">
-      {!loading && (
-        <TemplatesSection
-          contractCount={contracts.length}
-          onImport={actions.handleTemplateImport}
-          importing={actions.templateImporting}
-        />
-      )}
+    <div className="space-y-6">
+      <AiGeneratorHero onContractCreated={fetchContracts} />
+
+      {/* Toolbar */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -150,12 +196,9 @@ export function LibraryTab() {
         </div>
       </div>
 
+      {/* Content */}
       {loading ? (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-36 rounded-lg" />
-          ))}
-        </div>
+        <LoadingSkeleton />
       ) : error ? (
         <Alert variant="destructive">
           <AlertCircle className="size-4" />
@@ -167,17 +210,35 @@ export function LibraryTab() {
       ) : contracts.length === 0 ? (
         <EmptyState search={search} />
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {contracts.map((c) => (
-            <ContractCard
-              key={c.contract_id} contract={c}
-              onEdit={actions.handleEdit} onDelete={actions.handleDeleteRequest}
-              onDuplicate={actions.handleDuplicate} onClick={actions.openDetail}
-            />
-          ))}
+        <div className="space-y-8">
+          {activeSections.map((section) => {
+            const sectionContracts = grouped[section.type] ?? []
+            if (sectionContracts.length === 0) return null
+            return (
+              <div key={section.type}>
+                <div className={`flex items-center gap-2 mb-3 pb-2 border-b ${section.borderColor}`}>
+                  <section.icon className={`size-4 ${section.color}`} />
+                  <h3 className={`text-sm font-semibold ${section.color}`}>{section.label}</h3>
+                  <span className="text-xs text-muted-foreground">
+                    {section.description}
+                  </span>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {sectionContracts.map((c) => (
+                    <ContractCard
+                      key={c.contract_id} contract={c}
+                      onEdit={actions.handleEdit} onDelete={actions.handleDeleteRequest}
+                      onDuplicate={actions.handleDuplicate} onClick={actions.openDetail}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
+      {/* Dialogs */}
       <ContractEditorDialog
         open={actions.editorOpen} onOpenChange={(v) => { actions.setEditorOpen(v); if (!v) setFromEvent(undefined) }}
         contract={actions.editingContract} initialDefinition={actions.initialDef}
@@ -201,6 +262,19 @@ export function LibraryTab() {
   )
 }
 
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-6">
+      <Skeleton className="h-5 w-40" />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-40 rounded-lg" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function EmptyState({ search }: { search: string }) {
   return (
     <div className="flex h-32 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border">
@@ -210,7 +284,7 @@ function EmptyState({ search }: { search: string }) {
         <>
           <p className="text-sm font-medium text-foreground">No contracts yet</p>
           <p className="text-xs text-muted-foreground">
-            Create your first contract or import from a starter pack above.
+            Use the AI generator above, or create your first contract manually.
           </p>
         </>
       )}

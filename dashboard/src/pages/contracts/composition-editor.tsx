@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -10,6 +10,7 @@ import type { CompositionDetail } from "@/lib/api/compositions"
 import { CONTRACT_MODE_COLORS } from "@/lib/contract-colors"
 import { CompositionItemRow } from "./composition-item-row"
 import { ContractPickerDialog } from "./contract-picker-dialog"
+import { ContractEditorDialog } from "./contract-editor-dialog"
 import { PreviewDialog } from "./preview-dialog"
 import { ComposeDeployDialog } from "./compose-deploy-dialog"
 import { useCompositionEditor } from "./use-composition-editor"
@@ -27,8 +28,15 @@ export function CompositionEditor({
 }: CompositionEditorProps) {
   const ed = useCompositionEditor(composition, onSaved)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const [pickerRefresh, setPickerRefresh] = useState(0)
   const [previewOpen, setPreviewOpen] = useState(false)
   const [deployOpen, setDeployOpen] = useState(false)
+
+  const handleCreateNew = useCallback(() => setEditorOpen(true), [])
+  const handleContractCreated = useCallback(() => {
+    setPickerRefresh((n) => n + 1)
+  }, [])
 
   const modeColor =
     CONTRACT_MODE_COLORS[ed.mode] ??
@@ -166,7 +174,10 @@ export function CompositionEditor({
       </div>
 
       <ContractPickerDialog open={pickerOpen} onOpenChange={setPickerOpen}
-        existingContractIds={ed.existingIds} onAdd={ed.addContract} />
+        existingContractIds={ed.existingIds} onAdd={ed.addContract}
+        onCreateNew={handleCreateNew} refreshTrigger={pickerRefresh} />
+      <ContractEditorDialog open={editorOpen} onOpenChange={setEditorOpen}
+        onSaved={handleContractCreated} />
       <PreviewDialog open={previewOpen} onOpenChange={setPreviewOpen}
         compositionName={composition.name} onDeploy={() => setDeployOpen(true)} />
       <ComposeDeployDialog open={deployOpen} onOpenChange={setDeployOpen}

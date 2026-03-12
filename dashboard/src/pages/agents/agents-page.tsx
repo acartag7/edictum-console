@@ -90,7 +90,7 @@ export default function AgentsPage() {
     ? data.agents.every((a) => a.total_tools > 0 && a.ungoverned === a.total_tools)
     : false
   const allEnforced = summary
-    ? summary.with_ungoverned === 0 && summary.total_agents > 0
+    ? summary.with_ungoverned === 0 && summary.fully_enforced > 0
     : false
 
   return (

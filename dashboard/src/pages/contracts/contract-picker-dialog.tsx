@@ -27,6 +27,8 @@ interface ContractPickerDialogProps {
   onOpenChange: (open: boolean) => void
   existingContractIds: Set<string>
   onAdd: (contract: LibraryContractSummary) => void
+  onCreateNew?: () => void
+  refreshTrigger?: number
 }
 
 const TYPE_OPTIONS = ["all", "pre", "post", "session", "sandbox"] as const
@@ -36,6 +38,8 @@ export function ContractPickerDialog({
   onOpenChange,
   existingContractIds,
   onAdd,
+  onCreateNew,
+  refreshTrigger,
 }: ContractPickerDialogProps) {
   const [contracts, setContracts] = useState<LibraryContractSummary[]>([])
   const [loading, setLoading] = useState(false)
@@ -73,6 +77,11 @@ export function ContractPickerDialog({
   useEffect(() => {
     if (open) fetchContracts()
   }, [open, fetchContracts])
+
+  // Re-fetch when parent signals a new contract was created
+  useEffect(() => {
+    if (open && refreshTrigger) fetchContracts()
+  }, [refreshTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset state when closing
   useEffect(() => {
@@ -114,6 +123,23 @@ export function ContractPickerDialog({
           </Select>
         </div>
 
+        {onCreateNew && (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCreateNew}
+            className="flex w-full items-center gap-3 h-auto px-3 py-2.5 justify-start border-dashed hover:border-primary/50 hover:bg-accent"
+          >
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
+              <Plus className="size-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">Create New Contract</p>
+              <p className="text-xs text-muted-foreground">Define a new contract and add it to this bundle</p>
+            </div>
+          </Button>
+        )}
+
         <ScrollArea className="h-64">
           {loading ? (
             <div className="space-y-2 p-1">
@@ -122,8 +148,11 @@ export function ContractPickerDialog({
               ))}
             </div>
           ) : contracts.length === 0 ? (
-            <div className="flex h-32 items-center justify-center">
+            <div className="flex h-32 flex-col items-center justify-center gap-2">
               <p className="text-sm text-muted-foreground">No contracts found</p>
+              {onCreateNew && (
+                <p className="text-xs text-muted-foreground">Create one above to get started</p>
+              )}
             </div>
           ) : (
             <div className="space-y-1 p-1">

@@ -73,6 +73,8 @@ class AgentCoverageSummary(BaseModel):
     ungoverned: int
     coverage_pct: int
     drift_status: str = "unknown"  # "current", "drift", "unknown"
+    last_seen: datetime | None = None
+    event_count_24h: int = 0
 
 
 class UngovernedToolSummary(BaseModel):
