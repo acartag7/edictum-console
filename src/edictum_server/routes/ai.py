@@ -214,7 +214,7 @@ async def assist(
     try:
         resources = await build_resource_context(auth.tenant_id, db)
         if resources:
-            resource_msg = {
+            resource_msg: dict[str, object] = {
                 "role": "user",
                 "content": (
                     "[Context — your tenant's environment data, "
@@ -230,7 +230,7 @@ async def assist(
     # prompt (which LLMs treat as trusted instructions). Inject it as a separate
     # user context message so the model treats it as data, not instructions.
     if body.current_yaml:
-        yaml_context = {
+        yaml_context: dict[str, object] = {
             "role": "user",
             "content": (
                 "[Context — my current contract YAML for reference, "
@@ -286,7 +286,7 @@ async def assist(
             # Use cumulative usage from agent loop, or last provider usage
             input_tokens = cumulative_input
             output_tokens = cumulative_output
-            if input_tokens == 0 and output_tokens == 0:
+            if not input_tokens and not output_tokens:  # noqa: timing-safe N/A (token counts, not secrets)
                 usage = provider.last_usage
                 if usage:
                     input_tokens = usage.input_tokens

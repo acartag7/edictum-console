@@ -78,7 +78,7 @@ def _load_templates() -> str:
     try:
         templates_dir = importlib_resources.files("edictum.yaml_engine") / "templates"
         parts: list[str] = []
-        for item in sorted(templates_dir.iterdir()):
+        for item in sorted(templates_dir.iterdir(), key=lambda t: t.name):
             if not item.name.endswith(".yaml"):
                 continue
             content = item.read_text(encoding="utf-8")
