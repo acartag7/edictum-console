@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import * as yamlParser from "js-yaml"
-import { Sparkles, Send, Copy, ArrowDownToLine, Loader2, Settings, AlertTriangle } from "lucide-react"
+import { Sparkles, Send, Copy, ArrowDownToLine, Loader2, Settings, AlertTriangle, Wrench, CheckCircle2, XCircle, Play, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { API_BASE } from "@/lib/api/client"
 
@@ -25,10 +27,19 @@ interface UsageStats {
   model: string
 }
 
+interface ToolCallInfo {
+  id: string
+  tool: string
+  status: "running" | "complete" | "error"
+  result?: Record<string, unknown>
+  duration_ms?: number
+}
+
 interface ChatMessage {
   role: "user" | "assistant"
   content: string
   usage?: UsageStats
+  toolCalls?: ToolCallInfo[]
 }
 
 const YAML_BLOCK_RE = /```ya?ml\n([\s\S]*?)```/g
@@ -125,6 +136,7 @@ export function AiChatPanel({ onApplyYaml, currentYaml, initialMessage }: AiChat
 
       const decoder = new TextDecoder()
       let assistantContent = ""
+      let toolCalls: ToolCallInfo[] = []
       setMessages((prev) => [...prev, { role: "assistant", content: "" }])
 
       while (true) {
@@ -147,12 +159,46 @@ export function AiChatPanel({ onApplyYaml, currentYaml, initialMessage }: AiChat
               })
               continue
             }
-            if (parsed.error) { setError(parsed.error); break }
+            if (parsed.type === "tool_call_start") {
+              const tc: ToolCallInfo = {
+                id: parsed.id as string,
+                tool: parsed.tool as string,
+                status: "running",
+              }
+              toolCalls = [...toolCalls, tc]
+              setMessages((prev) => {
+                const copy = [...prev]
+                copy[copy.length - 1] = { role: "assistant", content: assistantContent, toolCalls: [...toolCalls] }
+                return copy
+              })
+              continue
+            }
+            if (parsed.type === "tool_call_result") {
+              toolCalls = toolCalls.map((tc) =>
+                tc.id === parsed.id
+                  ? { ...tc, status: "complete" as const, result: parsed.result as Record<string, unknown>, duration_ms: parsed.duration_ms as number }
+                  : tc
+              )
+              // Check if result has an error field
+              const resultObj = parsed.result as Record<string, unknown> | undefined
+              if (resultObj?.error) {
+                toolCalls = toolCalls.map((tc) =>
+                  tc.id === parsed.id ? { ...tc, status: "error" as const } : tc
+                )
+              }
+              setMessages((prev) => {
+                const copy = [...prev]
+                copy[copy.length - 1] = { role: "assistant", content: assistantContent, toolCalls: [...toolCalls] }
+                return copy
+              })
+              continue
+            }
+            if (parsed.error) { setError(parsed.error as string); break }
             if (parsed.content) {
               assistantContent += parsed.content
               setMessages((prev) => {
                 const copy = [...prev]
-                copy[copy.length - 1] = { role: "assistant", content: assistantContent }
+                copy[copy.length - 1] = { role: "assistant", content: assistantContent, toolCalls: toolCalls.length ? [...toolCalls] : undefined }
                 return copy
               })
             }
@@ -320,6 +366,97 @@ function inlineFormat(text: string): React.ReactNode {
   return parts.length === 1 ? parts[0] : <>{parts}</>
 }
 
+/** Render a single tool call as a compact, collapsible indicator. */
+function ToolCallIndicator({ tc }: { tc: ToolCallInfo }) {
+  const [open, setOpen] = useState(false)
+
+  const toolLabels: Record<string, string> = {
+    validate_contract: "Validating contract",
+    evaluate_contract: "Testing contract",
+  }
+
+  const label = toolLabels[tc.tool] ?? tc.tool
+
+  // Determine icon and status display based on tool + result
+  let StatusIcon = Wrench
+  let statusColor = "text-muted-foreground"
+  let statusText = ""
+
+  if (tc.status === "running") {
+    return (
+      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground py-0.5">
+        <Loader2 className="size-3 animate-spin" />
+        <span>{label}...</span>
+      </div>
+    )
+  }
+
+  if (tc.tool === "validate_contract" && tc.result) {
+    const valid = tc.result.valid as boolean
+    if (valid) {
+      StatusIcon = CheckCircle2
+      statusColor = "text-emerald-600 dark:text-emerald-400"
+      statusText = "Valid"
+    } else {
+      StatusIcon = XCircle
+      statusColor = "text-red-600 dark:text-red-400"
+      const errors = tc.result.errors as string[] | undefined
+      statusText = errors?.length ? errors[0]! : "Invalid"
+    }
+  } else if (tc.tool === "evaluate_contract" && tc.result) {
+    StatusIcon = Play
+    const verdict = tc.result.verdict as string | undefined
+    const error = tc.result.error as string | undefined
+    if (error) {
+      statusColor = "text-red-600 dark:text-red-400"
+      statusText = error
+    } else if (verdict === "allow") {
+      statusColor = "text-emerald-600 dark:text-emerald-400"
+      statusText = "allow"
+    } else if (verdict === "deny") {
+      statusColor = "text-red-600 dark:text-red-400"
+      statusText = "deny"
+    } else if (verdict === "flag") {
+      statusColor = "text-amber-600 dark:text-amber-400"
+      statusText = verdict ?? ""
+    } else {
+      statusColor = "text-violet-600 dark:text-violet-400"
+      statusText = verdict ?? ""
+    }
+  } else if (tc.status === "error") {
+    StatusIcon = XCircle
+    statusColor = "text-red-600 dark:text-red-400"
+    statusText = (tc.result?.error as string) ?? "Error"
+  }
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen}>
+      <CollapsibleTrigger asChild>
+        <button className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-[11px] hover:bg-background/80 transition-colors">
+          <ChevronRight className={`size-3 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
+          <StatusIcon className={`size-3 ${statusColor}`} />
+          <span className="text-muted-foreground">{label}</span>
+          {statusText && (
+            <Badge variant="outline" className={`ml-auto h-4 text-[9px] px-1.5 font-normal ${statusColor}`}>
+              {statusText.length > 50 ? statusText.slice(0, 50) + "…" : statusText}
+            </Badge>
+          )}
+          {tc.duration_ms != null && (
+            <span className="text-[9px] text-muted-foreground">{tc.duration_ms}ms</span>
+          )}
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        {tc.result && (
+          <pre className="ml-5 mt-0.5 overflow-x-auto rounded bg-background/60 p-1.5 text-[10px] font-mono text-muted-foreground whitespace-pre-wrap max-h-32 overflow-y-auto">
+            {JSON.stringify(tc.result, null, 2)}
+          </pre>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
 function MessageBubble({ message, onApply }: { message: ChatMessage; onApply: (yaml: string) => void }) {
   const isUser = message.role === "user"
   const yamlBlocks = isUser ? [] : extractYamlBlocks(message.content)
@@ -336,6 +473,14 @@ function MessageBubble({ message, onApply }: { message: ChatMessage; onApply: (y
           isUser
             ? <p className="whitespace-pre-wrap text-xs">{textWithoutYaml}</p>
             : <div className="space-y-1">{renderMarkdown(textWithoutYaml)}</div>
+        )}
+        {/* Tool call indicators — rendered between text and YAML blocks */}
+        {message.toolCalls && message.toolCalls.length > 0 && (
+          <div className="mt-1.5 space-y-0.5 border-t border-border/50 pt-1.5">
+            {message.toolCalls.map((tc) => (
+              <ToolCallIndicator key={tc.id} tc={tc} />
+            ))}
+          </div>
         )}
         {yamlBlocks.map((raw, i) => {
           const check = validateYamlBlock(raw)

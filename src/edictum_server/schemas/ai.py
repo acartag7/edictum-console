@@ -66,3 +66,24 @@ class AiUsageResponse(BaseModel):
     query_count: int
     avg_tokens_per_second: float
     daily: list[DailyUsage]
+
+
+# -- SSE event types for tool calling (documentation schemas) --
+
+
+class ToolCallStartEvent(BaseModel):
+    """SSE event emitted when the LLM invokes a tool."""
+
+    type: str = Field("tool_call_start", pattern=r"^tool_call_start$")
+    tool: str = Field(..., max_length=64)
+    id: str = Field(..., max_length=128)
+
+
+class ToolCallResultEvent(BaseModel):
+    """SSE event emitted after a tool call completes."""
+
+    type: str = Field("tool_call_result", pattern=r"^tool_call_result$")
+    id: str = Field(..., max_length=128)
+    tool: str = Field(..., max_length=64)
+    result: dict[str, object]
+    duration_ms: int

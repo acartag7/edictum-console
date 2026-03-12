@@ -92,6 +92,5 @@ def create_provider(
         )
 
     raise ValueError(
-        f"Unknown AI provider: {provider!r}. "
-        f"Supported: anthropic, openai, openrouter, ollama"
+        f"Unknown AI provider: {provider!r}. Supported: anthropic, openai, openrouter, ollama"
     )

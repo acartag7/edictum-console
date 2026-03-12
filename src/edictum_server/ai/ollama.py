@@ -33,8 +33,7 @@ class OllamaProvider(AIProvider):
     ) -> None:
         if not _HAS_OLLAMA:
             raise RuntimeError(
-                "ollama package is not installed. "
-                "Install it with: pip install ollama"
+                "ollama package is not installed. Install it with: pip install ollama"
             )
         self._host = host
         self._model = model
