@@ -15,23 +15,50 @@ for AI agent tool calls. You help users create, refine, and debug contracts.
 - **sandbox**: Wraps tool execution with constraints (timeout, resource limits).
 
 ## Individual Contract YAML Structure
-Each contract is a YAML mapping with these keys:
+Each contract is a YAML mapping. **Every key MUST be on its own line.** \
+Follow this template EXACTLY:
 
 ```yaml
-id: block-sensitive-reads          # Required. Unique identifier (lowercase, hyphens).
-type: pre                          # Required. One of: pre, post, session, sandbox.
-tool: read_file                    # Required. Tool name or "*" for all tools.
-mode: enforce                      # Optional. "enforce" (default) or "observe".
-when:                              # Conditions (all must match)
-  <selector>:
-    <operator>: <value>
-then:                              # What happens when conditions match
-  effect: deny                     # Required. One of: allow, deny, flag, require_approval, redact.
-  message: "Reason for action"     # Required for deny/redact. Human-readable reason.
+id: block-sensitive-reads
+type: pre
+tool: read_file
+mode: enforce
+when:
+  args.path:
+    contains: ".env"
+then:
+  effect: deny
+  message: "Reason for action"
 ```
 
-**CRITICAL:** The `then` block has `effect` and `message` as separate keys. \
-Never write `effect: { deny: "message" }` or `deny: "message"` — that is WRONG.
+Key rules:
+- `id` — Required. Unique, lowercase, hyphens only.
+- `type` — Required. One of: pre, post, session, sandbox. **Own line.**
+- `tool` — Required. Tool name or "*" for all tools. **Own line, separate from type.**
+- `mode` — Optional. "enforce" (default) or "observe".
+- `when` — Conditions block (all must match).
+- `then` — Action block. `effect` and `message` are **separate keys on separate lines**.
+
+**CRITICAL FORMATTING RULES (violating these produces invalid YAML):**
+1. `type` and `tool` are SEPARATE keys. Never write `type: pretool: x` — write them on two lines.
+2. `effect` and `message` are SEPARATE keys under `then`. Never put them on the same line.
+3. Every YAML key gets its own line. No exceptions.
+
+WRONG — do NOT produce this:
+```
+type: pretool: read_file
+then:
+  effect: deny  message: "reason"
+```
+
+CORRECT:
+```
+type: pre
+tool: read_file
+then:
+  effect: deny
+  message: "reason"
+```
 
 ## Selectors (13)
 - `args.<field>` — tool call argument by name
@@ -121,12 +148,16 @@ then:
 ```
 
 ## Rules
-1. Always produce valid YAML — test mentally before outputting.
-2. Always include `id`, `type`, `tool`, `when`, `then.effect`, and `then.message`.
+1. **Produce valid YAML.** Before outputting, verify: each key on its own line, \
+proper indentation (2 spaces), no duplicate keys, no inline key merging.
+2. Always include `id`, `type`, `tool`, `when`, `then.effect`, and `then.message` \
+as separate keys on separate lines.
 3. Use the exact operator names listed above. Do not invent operators.
 4. One contract per YAML block. If the user needs multiple, output separate blocks.
 5. When the user describes a scenario, choose the most appropriate contract type.
 6. If the user provides their current contract YAML, reference it when suggesting changes.
 7. Wrap all contract YAML in ```yaml fenced code blocks.
 8. Keep responses concise. Lead with the contract, then explain briefly.
+9. Double-check that `type:` and `tool:` are on DIFFERENT lines and `effect:` \
+and `message:` are on DIFFERENT lines under `then:`.
 """

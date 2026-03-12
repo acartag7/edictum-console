@@ -18,7 +18,12 @@ interface ImportDialogProps {
   onImported: () => void
 }
 
-interface ParsedPreview { count: number; ids: string[] }
+interface ParsedPreview {
+  format: "bundle" | "single" | "list"
+  bundleName?: string
+  count: number
+  contracts: Array<{ id: string; type?: string }>
+}
 
 export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogProps) {
   const [yamlContent, setYamlContent] = useState("")
@@ -42,18 +47,61 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
     debounceRef.current = setTimeout(() => {
       if (!val.trim()) { setValidation({ valid: true }); setPreview(null); return }
       try {
-        const doc = yaml.load(val) as Record<string, unknown> | null
-        if (!doc || typeof doc !== "object") {
-          setValidation({ valid: false, error: "Expected a YAML mapping" }); setPreview(null); return
+        const doc = yaml.load(val)
+
+        // Format 1: Full bundle
+        if (doc && typeof doc === "object" && !Array.isArray(doc)) {
+          const obj = doc as Record<string, unknown>
+          if (obj.kind === "ContractBundle" || (obj.apiVersion && Array.isArray(obj.contracts))) {
+            const contracts = obj.contracts as Array<Record<string, unknown>>
+            if (!Array.isArray(contracts) || contracts.length === 0) {
+              setValidation({ valid: false, error: "Bundle has no contracts" }); setPreview(null); return
+            }
+            setPreview({
+              format: "bundle",
+              bundleName: (obj.metadata as Record<string, unknown>)?.name as string | undefined,
+              count: contracts.length,
+              contracts: contracts.map(c => ({ id: String(c.id ?? "unknown"), type: c.type as string | undefined })),
+            })
+            setValidation({ valid: true })
+            return
+          }
+
+          // Format 2: Single contract (has `id` field)
+          if (typeof obj.id === "string") {
+            setPreview({
+              format: "single",
+              count: 1,
+              contracts: [{ id: obj.id, type: obj.type as string | undefined }],
+            })
+            setValidation({ valid: true })
+            return
+          }
+
+          setValidation({ valid: false, error: "Not a recognized contract format. Expected a contract with 'id' field, a list of contracts, or a ContractBundle." })
+          setPreview(null)
+          return
         }
-        const contracts = doc.contracts
-        if (!Array.isArray(contracts)) {
-          setValidation({ valid: false, error: "Missing 'contracts' array" }); setPreview(null); return
+
+        // Format 3: List of contracts
+        if (Array.isArray(doc)) {
+          const items = doc.filter((item): item is Record<string, unknown> =>
+            item && typeof item === "object" && typeof (item as Record<string, unknown>).id === "string"
+          )
+          if (items.length === 0) {
+            setValidation({ valid: false, error: "List contains no items with 'id' field" }); setPreview(null); return
+          }
+          setPreview({
+            format: "list",
+            count: items.length,
+            contracts: items.map(c => ({ id: String(c.id), type: c.type as string | undefined })),
+          })
+          setValidation({ valid: true })
+          return
         }
-        const ids = contracts.map((c: Record<string, unknown>) =>
-          String(c?.id ?? c?.contract_id ?? "unknown"))
-        setPreview({ count: contracts.length, ids })
-        setValidation({ valid: true })
+
+        setValidation({ valid: false, error: "Expected a YAML mapping or list" })
+        setPreview(null)
       } catch (e) {
         const msg = e instanceof yaml.YAMLException ? e.message : "Invalid YAML"
         const line = e instanceof yaml.YAMLException ? (e.mark?.line ?? 0) + 1 : undefined
@@ -67,10 +115,32 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
   }
 
   const handleImport = async () => {
-    if (!yamlContent.trim()) return
+    if (!yamlContent.trim() || !preview) return
     setImporting(true); setError(null)
     try {
-      const res = await importContracts(yamlContent)
+      let contentToSend = yamlContent
+
+      if (preview.format === "single") {
+        const doc = yaml.load(yamlContent) as Record<string, unknown>
+        const bundleWrapper = {
+          apiVersion: "edictum/v1",
+          kind: "ContractBundle",
+          metadata: { name: `imported-${doc.id || "contract"}` },
+          contracts: [doc],
+        }
+        contentToSend = yaml.dump(bundleWrapper, { lineWidth: -1 })
+      } else if (preview.format === "list") {
+        const doc = yaml.load(yamlContent) as Array<Record<string, unknown>>
+        const bundleWrapper = {
+          apiVersion: "edictum/v1",
+          kind: "ContractBundle",
+          metadata: { name: `imported-${doc.length}-contracts` },
+          contracts: doc,
+        }
+        contentToSend = yaml.dump(bundleWrapper, { lineWidth: -1 })
+      }
+
+      const res = await importContracts(contentToSend)
       setResult(res)
       const total = res.contracts_created.length + res.contracts_updated.length
       toast.success(`Imported ${total} contract${total !== 1 ? "s" : ""}`)
@@ -85,15 +155,32 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Contracts</DialogTitle>
-          <DialogDescription>Paste a contract bundle YAML to import contracts into the library.</DialogDescription>
+          <DialogDescription>Paste a contract, a list of contracts, or a full bundle YAML.</DialogDescription>
         </DialogHeader>
 
         <YamlEditor value={yamlContent} onChange={handleChange} validation={validation} height="220px" placeholder="# Paste contract bundle YAML here..." />
 
         {preview && !result && (
-          <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-            <span>{preview.count} contract{preview.count !== 1 ? "s" : ""} detected:</span>
-            {preview.ids.map((id) => <Badge key={id} variant="outline" className="text-xs">{id}</Badge>)}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <Badge variant="outline" className="text-xs">
+                {preview.format === "bundle" ? "Bundle" : preview.format === "single" ? "Single contract" : "Contract list"}
+              </Badge>
+              {preview.bundleName && (
+                <span className="text-muted-foreground">{preview.bundleName}</span>
+              )}
+              <span className="text-zinc-600 dark:text-zinc-400">
+                {preview.count} contract{preview.count !== 1 ? "s" : ""} detected
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {preview.contracts.map((c) => (
+                <Badge key={c.id} variant="outline" className="text-xs gap-1">
+                  {c.id}
+                  {c.type && <span className="text-muted-foreground">({c.type})</span>}
+                </Badge>
+              ))}
+            </div>
           </div>
         )}
 
@@ -124,7 +211,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>{result ? "Done" : "Cancel"}</Button>
           {!result && (
-            <Button onClick={handleImport} disabled={importing || !validation.valid || !yamlContent.trim()}>
+            <Button onClick={handleImport} disabled={importing || !validation.valid || !yamlContent.trim() || !preview}>
               {importing ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Upload className="mr-2 size-4" />}
               Import
             </Button>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import * as yaml from "js-yaml"
 import { toast } from "sonner"
 import { Loader2, Sparkles } from "lucide-react"
@@ -48,6 +48,7 @@ export function ContractEditorDialog({
   open, onOpenChange, contract, initialDefinition, fromEvent, onSaved,
 }: ContractEditorDialogProps) {
   const isEdit = !!contract
+  const autoFilledRef = useRef(false)
   const [showAi, setShowAi] = useState(false)
   const [contractId, setContractId] = useState("")
   const [name, setName] = useState("")
@@ -82,12 +83,50 @@ export function ContractEditorDialog({
     }
     setError(null)
     setSaving(false)
+    autoFilledRef.current = false
     reset()
   }, [contract?.contract_id, open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDefinitionChange = (val: string) => {
     setDefinition(val)
     validate(val)
+
+    // Auto-extract metadata on first paste only (when fields are empty)
+    if (!autoFilledRef.current && val.trim().length > 20) {
+      try {
+        const parsed = yaml.load(val)
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          const doc = parsed as Record<string, unknown>
+          let didFill = false
+
+          if (!contractId && typeof doc.id === "string") {
+            setContractId(doc.id); didFill = true
+          }
+          if (!name) {
+            if (typeof doc.name === "string") {
+              setName(doc.name); didFill = true
+            } else if (typeof doc.id === "string") {
+              setName(doc.id.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase()))
+              didFill = true
+            }
+          }
+          if (typeof doc.type === "string" && ["pre", "post", "session", "sandbox"].includes(doc.type)) {
+            setType(doc.type); didFill = true
+          }
+          if (!description && typeof doc.description === "string") {
+            setDescription(doc.description); didFill = true
+          }
+          if (!tags && Array.isArray(doc.tags)) {
+            const tagStr = doc.tags.filter((t): t is string => typeof t === "string").join(", ")
+            if (tagStr) { setTags(tagStr); didFill = true }
+          }
+
+          if (didFill) autoFilledRef.current = true
+        }
+      } catch {
+        // ignore parse errors — validation already handles display
+      }
+    }
   }
 
   const idValid = !contractId || ID_REGEX.test(contractId)

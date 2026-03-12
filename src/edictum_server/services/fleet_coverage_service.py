@@ -61,11 +61,22 @@ async def compute_fleet_coverage(
     # Group by agent
     agent_tools: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        agent_tools.setdefault(row.agent_id, []).append({
-            "tool_name": row.tool_name,
-            "event_count": row.event_count,
-            "last_used": row.last_used,
-        })
+        agent_tools.setdefault(row.agent_id, []).append(
+            {
+                "tool_name": row.tool_name,
+                "event_count": row.event_count,
+                "last_used": row.last_used,
+            }
+        )
+
+    # Per-agent aggregates for last_seen and event counts
+    agent_last_seen: dict[str, datetime] = {}
+    agent_event_counts: dict[str, int] = {}
+    for row in rows:
+        agent_id = row.agent_id
+        if agent_id not in agent_last_seen or row.last_used > agent_last_seen[agent_id]:
+            agent_last_seen[agent_id] = row.last_used
+        agent_event_counts[agent_id] = agent_event_counts.get(agent_id, 0) + row.event_count
 
     if not agent_tools:
         return _empty_fleet(time_window)
@@ -87,11 +98,19 @@ async def compute_fleet_coverage(
     for agent_id, tool_rows in agent_tools.items():
         agent_env = agent_envs.get(agent_id)
         if agent_env is None:
-            agent_coverages.append(AgentCoverageSummary(
-                agent_id=agent_id, environment="unknown",
-                total_tools=len(tool_rows), enforced=0, observed=0,
-                ungoverned=len(tool_rows), coverage_pct=0,
-            ))
+            agent_coverages.append(
+                AgentCoverageSummary(
+                    agent_id=agent_id,
+                    environment="unknown",
+                    total_tools=len(tool_rows),
+                    enforced=0,
+                    observed=0,
+                    ungoverned=len(tool_rows),
+                    coverage_pct=0,
+                    last_seen=agent_last_seen.get(agent_id),
+                    event_count_24h=agent_event_counts.get(agent_id, 0),
+                )
+            )
             for tr in tool_rows:
                 all_ungoverned.setdefault(tr["tool_name"], set()).add(agent_id)
             continue
@@ -109,12 +128,19 @@ async def compute_fleet_coverage(
         ungoverned = sum(1 for t in classified if t["status"] == "ungoverned")
         total = len(classified)
 
-        agent_coverages.append(AgentCoverageSummary(
-            agent_id=agent_id, environment=agent_env,
-            total_tools=total, enforced=enforced, observed=observed,
-            ungoverned=ungoverned,
-            coverage_pct=round(enforced / total * 100) if total > 0 else 100,
-        ))
+        agent_coverages.append(
+            AgentCoverageSummary(
+                agent_id=agent_id,
+                environment=agent_env,
+                total_tools=total,
+                enforced=enforced,
+                observed=observed,
+                ungoverned=ungoverned,
+                coverage_pct=round(enforced / total * 100) if total > 0 else 100,
+                last_seen=agent_last_seen.get(agent_id),
+                event_count_24h=agent_event_counts.get(agent_id, 0),
+            )
+        )
         for t in classified:
             if t["status"] == "ungoverned":
                 all_ungoverned.setdefault(t["tool_name"], set()).add(agent_id)
@@ -128,9 +154,7 @@ async def compute_fleet_coverage(
                 1 for c in agent_coverages if c.ungoverned == 0 and c.observed == 0
             ),
             with_ungoverned=sum(1 for c in agent_coverages if c.ungoverned > 0),
-            with_drift=sum(
-                1 for c in agent_coverages if c.drift_status == "drift"
-            ),
+            with_drift=sum(1 for c in agent_coverages if c.drift_status == "drift"),
             total_ungoverned_tools=len(all_ungoverned),
             ungoverned_tools=sorted(
                 [
@@ -152,8 +176,12 @@ def _empty_fleet(time_window: TimeWindow) -> FleetCoverage:
         time_window=time_window,
         agents=[],
         fleet_summary=FleetSummary(
-            total_agents=0, fully_enforced=0, with_ungoverned=0,
-            with_drift=0, total_ungoverned_tools=0, ungoverned_tools=[],
+            total_agents=0,
+            fully_enforced=0,
+            with_ungoverned=0,
+            with_drift=0,
+            total_ungoverned_tools=0,
+            ungoverned_tools=[],
         ),
     )
 
