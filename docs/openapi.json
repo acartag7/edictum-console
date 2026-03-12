@@ -3997,6 +3997,23 @@
             "type": "string",
             "title": "Drift Status",
             "default": "unknown"
+          },
+          "last_seen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen"
+          },
+          "event_count_24h": {
+            "type": "integer",
+            "title": "Event Count 24H",
+            "default": 0
           }
         },
         "type": "object",
