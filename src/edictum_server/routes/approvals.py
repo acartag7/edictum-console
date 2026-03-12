@@ -9,7 +9,6 @@ import uuid
 import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.auth.dependencies import (
@@ -44,6 +43,7 @@ def _fire(coro: object) -> None:
             logger.exception("Unhandled error in background notification task")
 
     asyncio.create_task(_run())
+
 
 router = APIRouter(prefix="/api/v1/approvals", tags=["approvals"])
 
@@ -94,7 +94,11 @@ async def create_approval(
     # Identity from auth context, not request body (CLAUDE.md rule)
     agent_id = auth.agent_id or f"key:{auth.api_key_prefix or 'unknown'}"
     approval = await approval_service.create_approval(
-        db, auth.tenant_id, body, env=env, agent_id=agent_id,
+        db,
+        auth.tenant_id,
+        body,
+        env=env,
+        agent_id=agent_id,
     )
     await db.commit()
 
@@ -157,12 +161,13 @@ async def list_approvals(
     db: AsyncSession = Depends(get_db),
 ) -> list[ApprovalResponse]:
     """List approvals, optionally filtered by status."""
-    stmt = select(Approval).where(Approval.tenant_id == auth.tenant_id)
-    if status:
-        stmt = stmt.where(Approval.status == status)
-    stmt = stmt.order_by(Approval.created_at.desc()).limit(limit).offset(offset)
-    result = await db.execute(stmt)
-    approvals = list(result.scalars().all())
+    approvals = await approval_service.list_approvals(
+        db,
+        auth.tenant_id,
+        status=status,
+        limit=limit,
+        offset=offset,
+    )
     return [_to_response(a) for a in approvals]
 
 

@@ -119,6 +119,23 @@ async def list_pending_approvals(
     return list(result.scalars().all())
 
 
+async def list_approvals(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    *,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[Approval]:
+    """List approvals for a tenant, optionally filtered by status."""
+    stmt = select(Approval).where(Approval.tenant_id == tenant_id)
+    if status:
+        stmt = stmt.where(Approval.status == status)
+    stmt = stmt.order_by(Approval.created_at.desc()).limit(limit).offset(offset)
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
+
+
 async def submit_decision(
     db: AsyncSession,
     tenant_id: uuid.UUID,

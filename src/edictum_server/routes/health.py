@@ -7,14 +7,14 @@ import time
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server import __version__
 from edictum_server.auth.dependencies import AuthContext, require_dashboard_auth
 from edictum_server.config import Settings, get_settings
 from edictum_server.db.engine import get_db
-from edictum_server.db.models import User
+from edictum_server.services.health_service import get_user_count
 
 router = APIRouter(prefix="/api/v1", tags=["health"])
 
@@ -49,13 +49,14 @@ async def health(
     Only exposes operational status and bootstrap state (needed by
     the setup wizard before any user exists).
     """
-    result = await db.execute(select(func.count()).select_from(User))
-    user_count = result.scalar() or 0
+    user_count = await get_user_count(db)
 
-    return JSONResponse(content={
-        "status": "ok",
-        "bootstrap_complete": user_count > 0,
-    })
+    return JSONResponse(
+        content={
+            "status": "ok",
+            "bootstrap_complete": user_count > 0,
+        }
+    )
 
 
 @router.get("/health/details")
@@ -70,8 +71,7 @@ async def health_details(
     Returns version, infrastructure status, worker health, and connected
     agent count. Requires dashboard session cookie. Returns 503 when degraded.
     """
-    result = await db.execute(select(func.count()).select_from(User))
-    user_count = result.scalar() or 0
+    user_count = await get_user_count(db)
 
     # DB latency
     db_start = time.monotonic()

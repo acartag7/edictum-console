@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.auth.api_keys import generate_api_key
@@ -15,6 +13,7 @@ from edictum_server.db.engine import get_db
 from edictum_server.db.models import ApiKey
 from edictum_server.push.manager import PushManager, get_push_manager
 from edictum_server.schemas.keys import ApiKeyInfo, CreateKeyRequest, CreateKeyResponse
+from edictum_server.services import key_service
 
 router = APIRouter(prefix="/api/v1/keys", tags=["keys"])
 
@@ -74,13 +73,7 @@ async def list_keys(
     db: AsyncSession = Depends(get_db),
 ) -> list[ApiKeyInfo]:
     """List all non-revoked API keys for the authenticated tenant."""
-    result = await db.execute(
-        select(ApiKey).where(
-            ApiKey.tenant_id == auth.tenant_id,
-            ApiKey.revoked_at.is_(None),
-        )
-    )
-    rows = result.scalars().all()
+    rows = await key_service.list_api_keys(db, auth.tenant_id)
 
     return [
         ApiKeyInfo(
@@ -105,26 +98,12 @@ async def revoke_key(
 
     Only the owning tenant (via dashboard auth) can revoke their keys.
     """
-    result = await db.execute(
-        select(ApiKey).where(
-            ApiKey.id == key_id,
-            ApiKey.tenant_id == auth.tenant_id,
-            ApiKey.revoked_at.is_(None),
-        )
-    )
-    api_key = result.scalar_one_or_none()
-
-    if api_key is None:
+    revoked = await key_service.revoke_api_key(db, auth.tenant_id, key_id)
+    if not revoked:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="API key not found or already revoked.",
         )
-
-    await db.execute(
-        update(ApiKey)
-        .where(ApiKey.id == key_id, ApiKey.tenant_id == auth.tenant_id)
-        .values(revoked_at=datetime.now(UTC))
-    )
     await db.commit()
 
     push.push_to_dashboard(
