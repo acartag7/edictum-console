@@ -218,7 +218,7 @@ contracts:
       message: "MCP call requires approval: {tool.name}"
       timeout: 120
       timeout_effect: deny
-    tags: [mcp, approval]
+      tags: [mcp, approval]
 
   - id: session-limits
     type: session
