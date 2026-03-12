@@ -124,10 +124,11 @@ export function ContractPickerDialog({
         </div>
 
         {onCreateNew && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={onCreateNew}
-            className="flex w-full items-center gap-3 rounded-lg border border-dashed border-border px-3 py-2.5 text-left transition-colors hover:border-primary/50 hover:bg-accent"
+            className="flex w-full items-center gap-3 h-auto px-3 py-2.5 justify-start border-dashed hover:border-primary/50 hover:bg-accent"
           >
             <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary/10">
               <Plus className="size-4 text-primary" />
@@ -136,7 +137,7 @@ export function ContractPickerDialog({
               <p className="text-sm font-medium text-foreground">Create New Contract</p>
               <p className="text-xs text-muted-foreground">Define a new contract and add it to this bundle</p>
             </div>
-          </button>
+          </Button>
         )}
 
         <ScrollArea className="h-64">

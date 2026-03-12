@@ -65,14 +65,16 @@ export function AiGeneratorHero({ onContractCreated }: AiGeneratorHeroProps) {
 
         <div className="flex flex-wrap gap-2">
           {SUGGESTIONS.map((s) => (
-            <button
+            <Button
               key={s}
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => handleSubmit(s)}
-              className="text-xs rounded-full border border-border px-3 py-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+              className="rounded-full text-xs text-muted-foreground"
             >
               {s}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
