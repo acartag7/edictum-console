@@ -432,7 +432,7 @@ function ToolCallIndicator({ tc }: { tc: ToolCallInfo }) {
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <CollapsibleTrigger asChild>
-        <button className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-[11px] hover:bg-background/80 transition-colors">
+        <Button variant="ghost" size="sm" className="flex w-full h-auto items-center gap-1.5 rounded px-1 py-0.5 text-[11px] justify-start font-normal hover:bg-background/80">
           <ChevronRight className={`size-3 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`} />
           <StatusIcon className={`size-3 ${statusColor}`} />
           <span className="text-muted-foreground">{label}</span>
@@ -444,7 +444,7 @@ function ToolCallIndicator({ tc }: { tc: ToolCallInfo }) {
           {tc.duration_ms != null && (
             <span className="text-[9px] text-muted-foreground">{tc.duration_ms}ms</span>
           )}
-        </button>
+        </Button>
       </CollapsibleTrigger>
       <CollapsibleContent>
         {tc.result && (
