@@ -25,13 +25,15 @@ from edictum_server.schemas.bundles import (
     DeploymentResponse,
     DeployRequest,
 )
-from edictum_server.services.bundle_service import (
-    get_bundle_by_version,
+from edictum_server.services.bundle_query_service import (
     get_bundle_enrichment,
-    get_current_bundle,
     get_deployed_envs_by_bundle_name,
     get_deployed_envs_map,
     list_bundle_names,
+)
+from edictum_server.services.bundle_service import (
+    get_bundle_by_version,
+    get_current_bundle,
     list_bundle_versions,
     upload_bundle,
 )

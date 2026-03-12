@@ -20,13 +20,13 @@ from edictum_server.schemas.contracts import (
     ImportRequest,
     ImportResult,
 )
+from edictum_server.services.contract_import_service import import_from_yaml
 from edictum_server.services.contract_service import (
     create_contract,
     delete_contract,
     get_contract,
     get_contract_usage,
     get_contract_versions,
-    import_from_yaml,
     list_contracts,
     update_contract,
 )
@@ -39,7 +39,8 @@ def _contract_to_summary(c: object) -> ContractSummary:
 
 
 def _contract_to_detail(
-    c: object, versions: Sequence[object] | None = None,
+    c: object,
+    versions: Sequence[object] | None = None,
 ) -> ContractDetail:
     detail = ContractDetail.model_validate(c)
     if versions:
@@ -56,6 +57,7 @@ def _contract_to_detail(
 
 # --- Import must be registered BEFORE /{contract_id} to avoid path conflicts ---
 
+
 @router.post("/import", response_model=ImportResult, status_code=201)
 async def import_contracts(
     body: ImportRequest,
@@ -66,7 +68,10 @@ async def import_contracts(
     """Import contracts from a YAML bundle (top-down decomposition)."""
     try:
         result = await import_from_yaml(
-            db, auth.tenant_id, body.yaml_content, auth.user_id or "unknown",
+            db,
+            auth.tenant_id,
+            body.yaml_content,
+            auth.user_id or "unknown",
         )
         await db.commit()
     except ValueError as exc:
@@ -74,15 +79,21 @@ async def import_contracts(
 
     # Push events for each created/updated contract
     for cid in result["contracts_created"]:
-        push.push_to_dashboard(auth.tenant_id, {
-            "type": "contract_created",
-            "contract_id": cid,
-        })
+        push.push_to_dashboard(
+            auth.tenant_id,
+            {
+                "type": "contract_created",
+                "contract_id": cid,
+            },
+        )
     for cid in result["contracts_updated"]:
-        push.push_to_dashboard(auth.tenant_id, {
-            "type": "contract_updated",
-            "contract_id": cid,
-        })
+        push.push_to_dashboard(
+            auth.tenant_id,
+            {
+                "type": "contract_updated",
+                "contract_id": cid,
+            },
+        )
 
     return ImportResult(**result)
 
@@ -97,8 +108,11 @@ async def list_contracts_endpoint(
 ) -> list[ContractSummary]:
     """List contracts in the library (latest versions only)."""
     contracts = await list_contracts(
-        db, auth.tenant_id,
-        type_filter=type, tag_filter=tag, search=search,
+        db,
+        auth.tenant_id,
+        type_filter=type,
+        tag_filter=tag,
+        search=search,
     )
     return [_contract_to_summary(c) for c in contracts]
 
@@ -113,7 +127,8 @@ async def create_contract_endpoint(
     """Create a new contract in the library."""
     try:
         contract = await create_contract(
-            db, auth.tenant_id,
+            db,
+            auth.tenant_id,
             contract_id=body.contract_id,
             name=body.name,
             type=body.type,
@@ -126,11 +141,14 @@ async def create_contract_endpoint(
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    push.push_to_dashboard(auth.tenant_id, {
-        "type": "contract_created",
-        "contract_id": contract.contract_id,
-        "version": contract.version,
-    })
+    push.push_to_dashboard(
+        auth.tenant_id,
+        {
+            "type": "contract_created",
+            "contract_id": contract.contract_id,
+            "version": contract.version,
+        },
+    )
 
     return _contract_to_detail(contract)
 
@@ -178,7 +196,9 @@ async def update_contract_endpoint(
     """Update a contract (creates a new version)."""
     try:
         contract = await update_contract(
-            db, auth.tenant_id, contract_id,
+            db,
+            auth.tenant_id,
+            contract_id,
             created_by=auth.user_id or "unknown",
             name=body.name,
             description=body.description,
@@ -191,11 +211,14 @@ async def update_contract_endpoint(
         status = 422 if "at least one field" in detail.lower() else 404
         raise HTTPException(status_code=status, detail=detail) from exc
 
-    push.push_to_dashboard(auth.tenant_id, {
-        "type": "contract_updated",
-        "contract_id": contract.contract_id,
-        "version": contract.version,
-    })
+    push.push_to_dashboard(
+        auth.tenant_id,
+        {
+            "type": "contract_updated",
+            "contract_id": contract.contract_id,
+            "version": contract.version,
+        },
+    )
 
     versions = await get_contract_versions(db, auth.tenant_id, contract_id)
     return _contract_to_detail(contract, versions)

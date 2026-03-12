@@ -7,11 +7,13 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from edictum_server.db.models import Deployment
+from edictum_server.services.bundle_query_service import (
+    get_deployed_envs_map,
+    list_bundle_names,
+)
 from edictum_server.services.bundle_service import (
     get_bundle_by_version,
     get_current_bundle,
-    get_deployed_envs_map,
-    list_bundle_names,
     list_bundle_versions,
     upload_bundle,
 )
@@ -134,21 +136,33 @@ async def test_deployed_envs_map_scoped(db_session: AsyncSession) -> None:
     await upload_bundle(db_session, TENANT_A_ID, YAML_DEVOPS.encode(), "test")
     await upload_bundle(db_session, TENANT_A_ID, YAML_RESEARCH.encode(), "test")
 
-    db_session.add(Deployment(
-        tenant_id=TENANT_A_ID, env="production",
-        bundle_name="devops-agent", bundle_version=1, deployed_by="test",
-    ))
-    db_session.add(Deployment(
-        tenant_id=TENANT_A_ID, env="staging",
-        bundle_name="research-agent", bundle_version=1, deployed_by="test",
-    ))
+    db_session.add(
+        Deployment(
+            tenant_id=TENANT_A_ID,
+            env="production",
+            bundle_name="devops-agent",
+            bundle_version=1,
+            deployed_by="test",
+        )
+    )
+    db_session.add(
+        Deployment(
+            tenant_id=TENANT_A_ID,
+            env="staging",
+            bundle_name="research-agent",
+            bundle_version=1,
+            deployed_by="test",
+        )
+    )
     await db_session.commit()
 
     devops_map = await get_deployed_envs_map(db_session, TENANT_A_ID, bundle_name="devops-agent")
     assert devops_map == {1: ["production"]}
 
     research_map = await get_deployed_envs_map(
-        db_session, TENANT_A_ID, bundle_name="research-agent",
+        db_session,
+        TENANT_A_ID,
+        bundle_name="research-agent",
     )
     assert research_map == {1: ["staging"]}
 
@@ -161,24 +175,40 @@ async def test_get_current_bundle_with_name(db_session: AsyncSession) -> None:
     await upload_bundle(db_session, TENANT_A_ID, YAML_DEVOPS.encode(), "test")
     await upload_bundle(db_session, TENANT_A_ID, YAML_RESEARCH.encode(), "test")
 
-    db_session.add(Deployment(
-        tenant_id=TENANT_A_ID, env="production",
-        bundle_name="devops-agent", bundle_version=1, deployed_by="test",
-    ))
-    db_session.add(Deployment(
-        tenant_id=TENANT_A_ID, env="production",
-        bundle_name="research-agent", bundle_version=1, deployed_by="test",
-    ))
+    db_session.add(
+        Deployment(
+            tenant_id=TENANT_A_ID,
+            env="production",
+            bundle_name="devops-agent",
+            bundle_version=1,
+            deployed_by="test",
+        )
+    )
+    db_session.add(
+        Deployment(
+            tenant_id=TENANT_A_ID,
+            env="production",
+            bundle_name="research-agent",
+            bundle_version=1,
+            deployed_by="test",
+        )
+    )
     await db_session.commit()
 
     devops = await get_current_bundle(
-        db_session, TENANT_A_ID, "production", bundle_name="devops-agent",
+        db_session,
+        TENANT_A_ID,
+        "production",
+        bundle_name="devops-agent",
     )
     assert devops is not None
     assert devops.name == "devops-agent"
 
     research = await get_current_bundle(
-        db_session, TENANT_A_ID, "production", bundle_name="research-agent",
+        db_session,
+        TENANT_A_ID,
+        "production",
+        bundle_name="research-agent",
     )
     assert research is not None
     assert research.name == "research-agent"
@@ -210,10 +240,15 @@ async def test_get_bundle_by_version_with_name(db_session: AsyncSession) -> None
 async def test_drift_current(db_session: AsyncSession) -> None:
     """check_drift returns 'current' when revision matches."""
     bundle = await upload_bundle(db_session, TENANT_A_ID, YAML_DEVOPS.encode(), "test")
-    db_session.add(Deployment(
-        tenant_id=TENANT_A_ID, env="production",
-        bundle_name="devops-agent", bundle_version=1, deployed_by="test",
-    ))
+    db_session.add(
+        Deployment(
+            tenant_id=TENANT_A_ID,
+            env="production",
+            bundle_name="devops-agent",
+            bundle_version=1,
+            deployed_by="test",
+        )
+    )
     await db_session.commit()
 
     result = await check_drift(db_session, TENANT_A_ID, bundle.revision_hash, "production")
@@ -223,10 +258,15 @@ async def test_drift_current(db_session: AsyncSession) -> None:
 async def test_drift_mismatch(db_session: AsyncSession) -> None:
     """check_drift returns 'drift' when revision doesn't match."""
     await upload_bundle(db_session, TENANT_A_ID, YAML_DEVOPS.encode(), "test")
-    db_session.add(Deployment(
-        tenant_id=TENANT_A_ID, env="production",
-        bundle_name="devops-agent", bundle_version=1, deployed_by="test",
-    ))
+    db_session.add(
+        Deployment(
+            tenant_id=TENANT_A_ID,
+            env="production",
+            bundle_name="devops-agent",
+            bundle_version=1,
+            deployed_by="test",
+        )
+    )
     await db_session.commit()
 
     result = await check_drift(db_session, TENANT_A_ID, "wrong_hash_abc123", "production")
