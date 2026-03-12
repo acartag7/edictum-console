@@ -102,11 +102,12 @@ class WebhookChannel(NotificationChannel):
         domain = urlparse(self._url).hostname or "unknown"
         try:
             resp = await self._client.post(self._url, content=body, headers=headers)
-            if resp.status_code >= 400:
+            status_code = getattr(resp, "status_code", None)
+            if isinstance(status_code, int) and status_code >= 400:
                 logger.warning(
                     "webhook_delivery_failed",
                     domain=domain,
-                    status_code=resp.status_code,
+                    status_code=status_code,
                     channel=self._name,
                 )
         except httpx.HTTPError:
