@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import * as yamlParser from "js-yaml"
-import { Sparkles, Send, Copy, ArrowDownToLine, Loader2, Settings, AlertTriangle, Wrench, CheckCircle2, XCircle, Play, ChevronRight } from "lucide-react"
+import { Sparkles, Send, Copy, ArrowDownToLine, Download, Loader2, Settings, AlertTriangle, Wrench, CheckCircle2, XCircle, Play, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -15,6 +15,8 @@ interface AiChatPanelProps {
   onApplyYaml: (yaml: string) => void
   currentYaml?: string
   initialMessage?: string
+  /** When true, "Apply" becomes "Download" (no editor to apply to). */
+  standalone?: boolean
 }
 
 interface UsageStats {
@@ -48,7 +50,7 @@ function extractYamlBlocks(content: string): string[] {
   return [...content.matchAll(YAML_BLOCK_RE)].map((m) => m[1]!)
 }
 
-export function AiChatPanel({ onApplyYaml, currentYaml, initialMessage }: AiChatPanelProps) {
+export function AiChatPanel({ onApplyYaml, currentYaml, initialMessage, standalone }: AiChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [streaming, setStreaming] = useState(false)
@@ -248,7 +250,7 @@ export function AiChatPanel({ onApplyYaml, currentYaml, initialMessage }: AiChat
       <ScrollArea className="flex-1 min-h-0">
         <div className="space-y-3 p-3">
           {messages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} onApply={onApplyYaml} />
+            <MessageBubble key={i} message={msg} onApply={onApplyYaml} standalone={standalone} />
           ))}
           {streaming && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -457,7 +459,30 @@ function ToolCallIndicator({ tc }: { tc: ToolCallInfo }) {
   )
 }
 
-function MessageBubble({ message, onApply }: { message: ChatMessage; onApply: (yaml: string) => void }) {
+function downloadYaml(raw: string) {
+  try {
+    const parsed = yamlParser.load(raw) as Record<string, unknown> | undefined
+    const id = parsed?.id as string | undefined
+    const filename = id ? `${id}.yaml` : "contract.yaml"
+    const blob = new Blob([raw], { type: "text/yaml" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    const blob = new Blob([raw], { type: "text/yaml" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "contract.yaml"
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+}
+
+function MessageBubble({ message, onApply, standalone }: { message: ChatMessage; onApply: (yaml: string) => void; standalone?: boolean }) {
   const isUser = message.role === "user"
   const yamlBlocks = isUser ? [] : extractYamlBlocks(message.content)
   const textWithoutYaml = message.content.replace(YAML_BLOCK_RE, "").trim()
@@ -493,18 +518,25 @@ function MessageBubble({ message, onApply }: { message: ChatMessage; onApply: (y
                 </p>
               )}
               <div className="mt-1.5 flex items-center gap-1.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      <Button size="sm" variant="outline" className="h-6 text-xs"
-                        disabled={!check.valid}
-                        onClick={() => { onApply(raw); toast.success("Applied to editor") }}>
-                        <ArrowDownToLine className="mr-1 size-3" /> Apply
-                      </Button>
-                    </span>
-                  </TooltipTrigger>
-                  {!check.valid && <TooltipContent>{check.error}</TooltipContent>}
-                </Tooltip>
+                {standalone ? (
+                  <Button size="sm" variant="outline" className="h-6 text-xs"
+                    onClick={() => { downloadYaml(raw); toast.success("Downloaded") }}>
+                    <Download className="mr-1 size-3" /> Download
+                  </Button>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span>
+                        <Button size="sm" variant="outline" className="h-6 text-xs"
+                          disabled={!check.valid}
+                          onClick={() => { onApply(raw); toast.success("Applied to editor") }}>
+                          <ArrowDownToLine className="mr-1 size-3" /> Apply
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {!check.valid && <TooltipContent>{check.error}</TooltipContent>}
+                  </Tooltip>
+                )}
                 <Button size="sm" variant="ghost" className="h-6 text-xs"
                   onClick={() => { void navigator.clipboard.writeText(raw); toast.success("Copied") }}>
                   <Copy className="mr-1 size-3" /> Copy
