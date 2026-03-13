@@ -82,7 +82,8 @@ export function AgentRegistrationRow({
                 <AlertTriangle className="size-3.5 text-amber-500" />
               </TooltipTrigger>
               <TooltipContent>
-                No bundle assigned — this agent will receive all deployments
+                No bundle assigned — assign a bundle so this agent receives
+                contract updates
               </TooltipContent>
             </Tooltip>
           )}
