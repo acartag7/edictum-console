@@ -13,19 +13,35 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Loader2 } from "lucide-react"
-import type { AgentRegistration } from "@/lib/api/agents"
+import { AlertTriangle, Loader2 } from "lucide-react"
+import type { MergedAgent } from "./deployments-tab"
 import { formatRelativeTime } from "@/lib/format"
 
+const STATUS_STYLES: Record<
+  MergedAgent["status"],
+  { dot: string; label: string }
+> = {
+  current: { dot: "bg-emerald-500", label: "Current" },
+  drift: { dot: "bg-amber-500", label: "Drift" },
+  unknown: { dot: "bg-zinc-400", label: "Unknown" },
+  offline: { dot: "border-2 border-zinc-400 bg-transparent", label: "Offline" },
+}
+
 const SOURCE_LABELS: Record<string, { label: string; color: string }> = {
-  explicit: { label: "Explicit", color: "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30" },
-  rule: { label: "Rule", color: "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30" },
-  agent_provided: { label: "Agent", color: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30" },
-  none: { label: "None", color: "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400 border-zinc-500/30" },
+  explicit: {
+    label: "Explicit",
+    color:
+      "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30",
+  },
+  rule: {
+    label: "Rule",
+    color:
+      "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/30",
+  },
 }
 
 interface AgentRegistrationRowProps {
-  agent: AgentRegistration
+  agent: MergedAgent
   selected: boolean
   onToggleSelect: () => void
   bundleNames: string[]
@@ -41,58 +57,95 @@ export function AgentRegistrationRow({
   updating,
   onAssignBundle,
 }: AgentRegistrationRowProps) {
-  const sourceInfo = SOURCE_LABELS[resolveSource(agent)] ?? SOURCE_LABELS.none!
+  const isUnassigned = !agent.bundle_name && !agent.resolved_bundle
+  const statusStyle = STATUS_STYLES[agent.status] ?? STATUS_STYLES.unknown
+  const source = agent.bundle_name
+    ? "explicit"
+    : agent.resolved_bundle
+      ? "rule"
+      : null
+  const sourceInfo = source ? SOURCE_LABELS[source] : null
 
   return (
     <TableRow>
       <TableCell>
         <Checkbox checked={selected} onCheckedChange={onToggleSelect} />
       </TableCell>
-      <TableCell className="font-mono text-sm">{agent.agent_id}</TableCell>
-      <TableCell className="text-sm text-muted-foreground">
-        {agent.display_name ?? "-"}
-      </TableCell>
+
+      {/* Agent ID + unassigned warning */}
       <TableCell>
-        <TagBadges tags={agent.tags} />
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-sm">{agent.agent_id}</span>
+          {isUnassigned && (
+            <Tooltip>
+              <TooltipTrigger>
+                <AlertTriangle className="size-3.5 text-amber-500" />
+              </TooltipTrigger>
+              <TooltipContent>
+                No bundle assigned — this agent will receive all deployments
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </TableCell>
+
+      {/* Assigned Bundle dropdown */}
       <TableCell>
         {updating ? (
           <Loader2 className="size-4 animate-spin text-muted-foreground" />
         ) : (
-          <Select
-            value={agent.bundle_name ?? "none"}
-            onValueChange={(v) => onAssignBundle(v)}
-          >
-            <SelectTrigger className="h-8 w-40 text-xs">
-              <SelectValue placeholder="Not assigned" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">
-                <span className="text-muted-foreground">Not assigned</span>
-              </SelectItem>
-              {bundleNames.map((name) => (
-                <SelectItem key={name} value={name}>{name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      </TableCell>
-      <TableCell>
-        {agent.resolved_bundle ? (
           <div className="flex items-center gap-1.5">
-            <span className="text-sm">{agent.resolved_bundle}</span>
-            <Badge variant="outline" className={`text-[10px] ${sourceInfo.color}`}>
-              {sourceInfo.label}
-            </Badge>
+            <Select
+              value={agent.bundle_name ?? "none"}
+              onValueChange={(v) => onAssignBundle(v)}
+            >
+              <SelectTrigger
+                className={`h-8 w-40 text-xs ${isUnassigned ? "border-amber-500/50" : ""}`}
+              >
+                <SelectValue placeholder="Not assigned" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">
+                  <span className="text-muted-foreground">Not assigned</span>
+                </SelectItem>
+                {bundleNames.map((name) => (
+                  <SelectItem key={name} value={name}>
+                    {name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {sourceInfo && (
+              <Badge
+                variant="outline"
+                className={`text-[10px] ${sourceInfo.color}`}
+              >
+                {sourceInfo.label}
+              </Badge>
+            )}
           </div>
-        ) : (
-          <span className="text-sm text-muted-foreground">-</span>
         )}
       </TableCell>
+
+      {/* Status dot */}
+      <TableCell>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`inline-block size-2 rounded-full ${statusStyle.dot}`}
+          />
+          <span className="text-xs text-muted-foreground">
+            {statusStyle.label}
+          </span>
+        </div>
+      </TableCell>
+
+      {/* Last Seen */}
       <TableCell>
         <Tooltip>
           <TooltipTrigger className="text-sm text-muted-foreground">
-            {agent.last_seen_at ? formatRelativeTime(agent.last_seen_at) : "never"}
+            {agent.last_seen_at
+              ? formatRelativeTime(agent.last_seen_at)
+              : "never"}
           </TooltipTrigger>
           <TooltipContent>
             {agent.last_seen_at
@@ -102,30 +155,5 @@ export function AgentRegistrationRow({
         </Tooltip>
       </TableCell>
     </TableRow>
-  )
-}
-
-function resolveSource(agent: AgentRegistration): string {
-  if (agent.bundle_name) return "explicit"
-  if (agent.resolved_bundle) return "rule"
-  return "none"
-}
-
-function TagBadges({ tags }: { tags: Record<string, string> }) {
-  const entries = Object.entries(tags)
-  if (entries.length === 0) return <span className="text-sm text-muted-foreground">-</span>
-  return (
-    <div className="flex flex-wrap gap-1">
-      {entries.slice(0, 3).map(([k, v]) => (
-        <Badge key={k} variant="outline" className="text-[10px]">
-          {k}={v}
-        </Badge>
-      ))}
-      {entries.length > 3 && (
-        <Badge variant="outline" className="text-[10px] text-muted-foreground">
-          +{entries.length - 3}
-        </Badge>
-      )}
-    </div>
   )
 }
