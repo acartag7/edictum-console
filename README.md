@@ -20,6 +20,10 @@ You deployed edictum contracts to your agent fleet. Tool calls are governed. But
 
 Edictum Console solves all three. One Docker image. Five minutes to deploy.
 
+<p align="center">
+  <img src="docs/images/dashboard-home.png" alt="Edictum Console — Dashboard overview with pending approvals, verdict distribution, activity feed, and agent fleet" width="100%">
+</p>
+
 ## Quick Start
 
 ```bash
@@ -75,6 +79,10 @@ Versioned contract library with composition model:
 
 Bundle versioning, YAML diff viewer, evaluation playground, and AI contract assistant (Anthropic, OpenAI, OpenRouter, Ollama).
 
+<p align="center">
+  <img src="docs/images/contracts-page.png" alt="Contract library with AI assistant, preconditions, postconditions, and sandbox rules" width="100%">
+</p>
+
 ### Live Hot-Reload
 
 Deploy a contract -- connected agents pick it up instantly. Zero downtime.
@@ -91,6 +99,10 @@ Agent requests approval -- notification fires -- human approves or denies -- age
 - Interactive approve/deny buttons in Telegram, Slack, and Discord
 - Configurable timeout with deny or allow fallback
 - Rate-limited (10 requests per 60 seconds per agent)
+
+<p align="center">
+  <img src="docs/images/approvals-queue.png" alt="Approval queue with pending requests from pharma, devops, and finance agents" width="100%">
+</p>
 
 ### Notification Channels
 
@@ -111,12 +123,20 @@ Routing filters per channel: environments, agent patterns (globs), contract name
 
 Datadog-style three-panel layout: faceted filter sidebar, time-sorted event list with histogram, and full event detail. URL-driven filters for sharing views. PostgreSQL-partitioned by month.
 
+<p align="center">
+  <img src="docs/images/events-feed.png" alt="Audit event feed with filters, histogram, and denied transfer_funds event detail" width="100%">
+</p>
+
 ### Fleet Monitoring
 
 - Live connected agents with environment, bundle, and policy version
 - Drift detection per agent (current vs deployed bundle)
 - Coverage analysis: every tool classified as enforced, observed, or ungoverned
 - Agent detail pages with coverage, analytics, and contract change history
+
+<p align="center">
+  <img src="docs/images/fleet-monitoring.png" alt="Fleet monitoring with 100% coverage, 4 agents, drift detection, and coverage bars" width="100%">
+</p>
 
 ### Agent Assignment
 

@@ -84,6 +84,7 @@ export function AiGeneratorHero({ onContractCreated }: AiGeneratorHeroProps) {
           <AiChatPanel
             onApplyYaml={handleApplyYaml}
             initialMessage={initialMessage}
+            standalone
           />
         </SheetContent>
       </Sheet>
