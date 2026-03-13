@@ -82,7 +82,7 @@ class OpenAICompatibleProvider(AIProvider):
         all_messages = [{"role": "system", "content": system_prompt}, *messages]
         stream = await self._client.chat.completions.create(
             model=self._model,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
             stream=True,
             stream_options={"include_usage": True},
             messages=all_messages,
@@ -134,7 +134,7 @@ class OpenAICompatibleProvider(AIProvider):
 
         stream = await self._client.chat.completions.create(
             model=self._model,
-            max_tokens=max_tokens,
+            max_completion_tokens=max_tokens,
             stream=True,
             stream_options={"include_usage": True},
             messages=all_messages,
