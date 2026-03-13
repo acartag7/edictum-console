@@ -35,10 +35,24 @@ def test_subscribe_returns_agent_connection(push: PushManager) -> None:
 
 
 def test_push_to_env_filters_by_tenant(push: PushManager) -> None:
-    conn_a = push.subscribe("production", tenant_id=TENANT_A, agent_id="a1")
-    conn_b = push.subscribe("production", tenant_id=TENANT_B, agent_id="b1")
+    conn_a = push.subscribe(
+        "production",
+        tenant_id=TENANT_A,
+        agent_id="a1",
+        bundle_name="b",
+    )
+    conn_b = push.subscribe(
+        "production",
+        tenant_id=TENANT_B,
+        agent_id="b1",
+        bundle_name="b",
+    )
 
-    push.push_to_env("production", {"type": "contract_update", "v": 1}, tenant_id=TENANT_A)
+    push.push_to_env(
+        "production",
+        {"type": "contract_update", "bundle_name": "b", "v": 1},
+        tenant_id=TENANT_A,
+    )
 
     assert not conn_a.queue.empty()
     assert conn_b.queue.empty()
@@ -62,23 +76,27 @@ def test_push_to_env_filters_by_bundle_name(push: PushManager) -> None:
     assert conn_research.queue.empty()
 
 
-def test_push_to_env_no_filter_receives_all(push: PushManager) -> None:
-    """Connection with no bundle_name gets all contract_update events."""
-    conn_all = push.subscribe("production", tenant_id=TENANT_A, agent_id="a1")
-    conn_filtered = push.subscribe(
+def test_push_to_env_unassigned_receives_nothing(push: PushManager) -> None:
+    """Connection with no bundle_name must NOT receive contract_update events.
+
+    Unassigned agents getting all bundles is a data leak — they'd receive
+    contracts intended for other agents.
+    """
+    conn_unassigned = push.subscribe("production", tenant_id=TENANT_A, agent_id="a1")
+    conn_assigned = push.subscribe(
         "production", tenant_id=TENANT_A, agent_id="a2", bundle_name="devops-agent"
     )
 
     push.push_to_env(
         "production",
-        {"type": "contract_update", "bundle_name": "research-agent", "v": 1},
+        {"type": "contract_update", "bundle_name": "devops-agent", "v": 1},
         tenant_id=TENANT_A,
     )
 
-    # Unfiltered connection receives everything
-    assert not conn_all.queue.empty()
-    # Filtered connection for a different bundle does not
-    assert conn_filtered.queue.empty()
+    # Unassigned connection must NOT receive anything
+    assert conn_unassigned.queue.empty()
+    # Assigned connection for matching bundle receives it
+    assert not conn_assigned.queue.empty()
 
 
 def test_push_to_env_non_contract_update_ignores_bundle_filter(push: PushManager) -> None:
@@ -107,12 +125,8 @@ def test_get_agent_connections_by_tenant(push: PushManager) -> None:
 
 
 def test_get_agent_connections_by_bundle_name(push: PushManager) -> None:
-    push.subscribe(
-        "production", tenant_id=TENANT_A, agent_id="a1", bundle_name="devops-agent"
-    )
-    push.subscribe(
-        "production", tenant_id=TENANT_A, agent_id="a2", bundle_name="research-agent"
-    )
+    push.subscribe("production", tenant_id=TENANT_A, agent_id="a1", bundle_name="devops-agent")
+    push.subscribe("production", tenant_id=TENANT_A, agent_id="a2", bundle_name="research-agent")
 
     conns = push.get_agent_connections(TENANT_A, bundle_name="devops-agent")
     assert len(conns) == 1

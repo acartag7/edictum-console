@@ -538,12 +538,22 @@ async def test_approval_get_dashboard_sees_all(
 async def test_push_manager_env_isolation(push_manager: PushManager) -> None:
     """PushManager must not deliver events across environments."""
     tenant = TENANT_A_ID
-    prod_conn = push_manager.subscribe("production", tenant_id=tenant, agent_id="prod")
-    stg_conn = push_manager.subscribe("staging", tenant_id=tenant, agent_id="stg")
+    prod_conn = push_manager.subscribe(
+        "production",
+        tenant_id=tenant,
+        agent_id="prod",
+        bundle_name="test-bundle",
+    )
+    stg_conn = push_manager.subscribe(
+        "staging",
+        tenant_id=tenant,
+        agent_id="stg",
+        bundle_name="test-bundle",
+    )
 
     push_manager.push_to_env(
         "production",
-        {"type": "contract_update", "version": 1},
+        {"type": "contract_update", "bundle_name": "test-bundle", "version": 1},
         tenant_id=tenant,
     )
 

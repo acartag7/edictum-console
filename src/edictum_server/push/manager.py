@@ -144,12 +144,11 @@ class PushManager:
         for conn in self._connections.get(env, set()):
             if conn.tenant_id != tenant_id:
                 continue
-            # For contract_update, respect bundle_name filter
-            if (
-                event_type == "contract_update"
-                and conn.bundle_name is not None
-                and event_bundle is not None
-                and conn.bundle_name != event_bundle
+            # For contract_update, only deliver to agents subscribed to
+            # this specific bundle.  Agents with no bundle_name (unassigned)
+            # do NOT receive contract updates — they must be assigned first.
+            if event_type == "contract_update" and (
+                conn.bundle_name is None or conn.bundle_name != event_bundle
             ):
                 continue
             try:
